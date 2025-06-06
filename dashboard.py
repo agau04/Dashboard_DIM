@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 st.set_page_config(page_title="Statistiques DIM", layout="wide")
 
 # --- Couleurs & Styles ---
-COLOR_PRIMARY = '#4E79A7'  # Bleu
+COLOR_PRIMARY = "#619CDA"  # Bleu
 COLOR_ALERT = '#E15759'    # Rouge
 BACKGROUND_COLOR = '#F9F9F9'  # Fond clair pour les graphes
 
