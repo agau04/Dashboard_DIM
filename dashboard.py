@@ -100,7 +100,7 @@ if 'Delta' in df_filtered.columns:
             st.subheader("📊 Répartition des délais de livraison (colonne Delta)")
 
             fig, ax = plt.subplots(figsize=(5, 3))
-            bars = ax.bar(delta_counts.index.astype(str), delta_counts.values, color='skyblue')
+            bars = ax.bar(delta_counts.index.astype(str), delta_counts.values, color='#4E79A7')
 
             ax.set_xlabel('Délai de livraison (jours)', fontsize=9)
             ax.set_ylabel("Nombre d'expéditions", fontsize=9)
@@ -139,7 +139,7 @@ if 'Souffrance' in df_filtered.columns:
 
             labels = ['Avec mention Souffrance', 'Sans mention Souffrance']
             sizes = [count_souffrance, total - count_souffrance]
-            colors = ['tomato', 'lightgrey']
+            colors = ['#E15759', '#4E79A7']
 
             fig2, ax2 = plt.subplots(figsize=(5, 3))
             wedges, texts, autotexts = ax2.pie(
