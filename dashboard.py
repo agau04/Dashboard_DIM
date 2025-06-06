@@ -90,7 +90,7 @@ def plot_delta(delta_counts):
         height = bar.get_height()
         ax.annotate(f'{int(height)}',
                     xy=(bar.get_x() + bar.get_width() / 2, height),
-                    xytext=(0, 4),
+                    xytext=(0, 6),
                     textcoords="offset points",
                     ha='center', va='bottom',
                     fontsize=8,
