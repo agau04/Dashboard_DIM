@@ -12,7 +12,7 @@ with st.sidebar:
         st.cache_data.clear()
         st.rerun()  # méthode stable pour rerun
 
-@st.cache_data(ttl=300)  # Cache 5 minutes
+@st.cache_data(ttl=600)  # Cache 5 minutes
 def load_csv_from_url():
     url = "https://sobotram.teliway.com:443/appli/vsobotram/main/extraction.php?sAction=export&idDo=173&sCle=KPI_DIM&sTypeResultat=csv"
     try:
@@ -110,7 +110,7 @@ with st.sidebar:
                 df_filtered = df_filtered[df_filtered['Type_Transport'] == selected]
 
 # 🧾 Tableau principal
-st.subheader("📋 Données filtrées")
+st.subheader("📋 Données brut")
 df_display = df_filtered.drop(columns=['Date_BE_dt'], errors='ignore').reset_index(drop=True)
 st.dataframe(df_display, use_container_width=True)
 
