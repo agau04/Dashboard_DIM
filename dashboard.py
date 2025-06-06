@@ -7,9 +7,9 @@ import matplotlib.pyplot as plt
 st.set_page_config(page_title="Statistiques DIM", layout="wide")
 
 # --- Couleurs & Styles ---
-COLOR_PRIMARY = "#8AE226"  # Bleu
-COLOR_ALERT = "#B13B3D"    # Rouge
-BACKGROUND_COLOR = "#000000"  # Fond clair pour les graphes
+COLOR_PRIMARY = "#2BC559"  # Bleu
+COLOR_ALERT = "#C72B2E"    # Rouge
+BACKGROUND_COLOR = "#EBE8E8"  # Fond clair pour les graphes
 
 # 📌 Bouton de refresh dans la sidebar, dans une interaction
 with st.sidebar:
