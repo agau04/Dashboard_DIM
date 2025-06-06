@@ -102,7 +102,7 @@ if 'Delta' in df_filtered.columns:
 
         with col1:
             st.subheader("📊 Répartition des délais de livraison (Delta)")
-            st.markdown(f"**{delta_counts}** BL livrés ")
+            st.markdown(f"**{len(delta_non_null)} BL** livrés avec un délai mesuré")
 
             fig, ax = plt.subplots(figsize=(5, 3))
             bars = ax.bar(delta_counts.index.astype(str), delta_counts.values, color=COLOR_PRIMARY)
