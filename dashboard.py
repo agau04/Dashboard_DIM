@@ -6,17 +6,21 @@ import matplotlib.pyplot as plt
 
 st.set_page_config(page_title="Statistiques DIM", layout="wide")
 
-# 📌 BOUTON DE REFRESH DANS LA SIDEBAR, dans une interaction
+# 📌 Bouton de refresh dans la sidebar, dans une interaction
 with st.sidebar:
     if st.button("🔁 Recharger les données"):
         st.cache_data.clear()
-        st.rerun()  # ✅ st.rerun() est la nouvelle méthode stable (à partir de v1.25)
+        st.rerun()  # méthode stable pour rerun
 
-@st.cache_data
+@st.cache_data(ttl=300)  # Cache 5 minutes
 def load_csv_from_url():
     url = "https://sobotram.teliway.com:443/appli/vsobotram/main/extraction.php?sAction=export&idDo=173&sCle=KPI_DIM&sTypeResultat=csv"
-    response = requests.get(url, verify=False)
-    response.raise_for_status()
+    try:
+        response = requests.get(url, verify=False, timeout=10)
+        response.raise_for_status()
+    except Exception as e:
+        st.error(f"Erreur lors du chargement des données : {e}")
+        return pd.DataFrame()  # Retourne dataframe vide pour éviter crash
     try:
         content = response.content.decode('utf-8')
     except UnicodeDecodeError:
@@ -25,27 +29,60 @@ def load_csv_from_url():
     df.columns = [col.strip() for col in df.columns]
     return df
 
+@st.cache_data(ttl=300)
+def preprocess_df(df: pd.DataFrame):
+    if 'Date_BE' in df.columns:
+        df['Date_BE_dt'] = pd.to_datetime(df['Date_BE'], errors='coerce')
+        df = df.dropna(subset=['Date_BE_dt'])
+    return df
 
+@st.cache_data(ttl=300)
+def clean_delta_column(df: pd.DataFrame):
+    if 'Delta' not in df.columns:
+        return pd.Series(dtype='float64')
+    delta_clean = (
+        df['Delta']
+        .astype(str)
+        .str.strip()
+        .replace({'--': None, 'NC': None, '': None, 'nan': None, 'NaN': None, 'None': None})
+    )
+    delta_clean = pd.to_numeric(delta_clean, errors='coerce')
+    return delta_clean.dropna()
+
+@st.cache_data(ttl=300)
+def count_souffrance(df: pd.DataFrame):
+    if 'Souffrance' not in df.columns:
+        return 0, 0
+    souffrance_non_null = (
+        df['Souffrance']
+        .astype(str)
+        .str.strip()
+        .replace({'', 'nan', 'NaN', 'None'}, None)
+        .dropna()
+    )
+    return len(souffrance_non_null), len(df)
+
+# --- MAIN ---
 
 st.title("📦 KPI Transport DIM")
 
 df = load_csv_from_url()
 
-# Transformation date
-if 'Date_BE' in df.columns:
-    df['Date_BE_dt'] = pd.to_datetime(df['Date_BE'], errors='coerce')
-    df = df.dropna(subset=['Date_BE_dt'])
+if df.empty:
+    st.warning("Aucune donnée chargée pour l'instant.")
+    st.stop()
+
+df = preprocess_df(df)
 
 df_filtered = df.copy()
 
-# 🎛️ Filtres
+# 🎛️ Filtres dans sidebar
 with st.sidebar:
     st.header("🔍 Filtres")
 
     if 'Date_BE_dt' in df_filtered.columns and not df_filtered.empty:
         min_date = df_filtered['Date_BE_dt'].min().date()
         max_date = df_filtered['Date_BE_dt'].max().date()
-
         date_range = st.date_input(
             "📅 Période Date_BE",
             value=[min_date, max_date],
@@ -53,7 +90,6 @@ with st.sidebar:
             max_value=max_date,
             format="DD/MM/YYYY"
         )
-
         if isinstance(date_range, (list, tuple)) and len(date_range) == 2:
             start_date, end_date = date_range
             df_filtered = df_filtered[
@@ -78,94 +114,75 @@ st.subheader("📋 Données filtrées")
 df_display = df_filtered.drop(columns=['Date_BE_dt'], errors='ignore').reset_index(drop=True)
 st.dataframe(df_display, use_container_width=True)
 
-# 🎨 Couleurs globales
 COLOR_PRIMARY = '#4E79A7'  # Bleu
 COLOR_ALERT = '#E15759'    # Rouge
 
-# 📊 Graphiques
 col1, col2 = st.columns(2)
 
 # ➤ Graphique Delta
-if 'Delta' in df_filtered.columns:
-    df_filtered['Delta_clean'] = (
-        df_filtered['Delta']
-        .astype(str)
-        .str.strip()
-        .replace({'--': None, 'NC': None, '': None, 'nan': None, 'NaN': None, 'None': None})
-    )
-    df_filtered['Delta_clean'] = pd.to_numeric(df_filtered['Delta_clean'], errors='coerce')
-    delta_non_null = df_filtered['Delta_clean'].dropna()
+delta_non_null = clean_delta_column(df_filtered)
 
-    if len(delta_non_null) > 0:
-        delta_counts = delta_non_null.value_counts().sort_index()
-        delta_counts = delta_counts[delta_counts.index <= 30]
+if len(delta_non_null) > 0:
+    delta_counts = delta_non_null.value_counts().sort_index()
+    delta_counts = delta_counts[delta_counts.index <= 30]
 
-        with col1:
-            st.subheader("📊 Répartition des délais de livraison (Delta)")
-            st.markdown(f"**{len(delta_non_null)} BL** livrés avec un délai mesuré")
+    with col1:
+        st.subheader("📊 Répartition des délais de livraison (Delta)")
+        st.markdown(f"**{len(delta_non_null)} BL** livrés avec un délai mesuré")
 
-            fig, ax = plt.subplots(figsize=(5, 3))
-            bars = ax.bar(delta_counts.index.astype(str), delta_counts.values, color=COLOR_PRIMARY)
+        fig, ax = plt.subplots(figsize=(5, 3))
+        bars = ax.bar(delta_counts.index.astype(str), delta_counts.values, color=COLOR_PRIMARY)
 
-            ax.set_xlabel('Délai de livraison (jours)', fontsize=9)
-            ax.set_ylabel("Nombre d'expéditions", fontsize=9)
-            ax.set_title('Répartition des délais de livraison', fontsize=10)
-            ax.tick_params(axis='both', labelsize=8)
-            ax.grid(axis='y', linestyle='--', alpha=0.7)
-            ax.set_ylim(0, max(delta_counts.values)*1.1)
+        ax.set_xlabel('Délai de livraison (jours)', fontsize=9)
+        ax.set_ylabel("Nombre d'expéditions", fontsize=9)
+        ax.set_title('Répartition des délais de livraison', fontsize=10)
+        ax.tick_params(axis='both', labelsize=8)
+        ax.grid(axis='y', linestyle='--', alpha=0.7)
+        ax.set_ylim(0, max(delta_counts.values) * 1.1)
 
-            for bar in bars:
-                height = bar.get_height()
-                ax.annotate(f'{int(height)}',
-                            xy=(bar.get_x() + bar.get_width() / 2, height),
-                            xytext=(0, 3),
-                            textcoords="offset points",
-                            ha='center', va='bottom', fontsize=8)
+        for bar in bars:
+            height = bar.get_height()
+            ax.annotate(f'{int(height)}',
+                        xy=(bar.get_x() + bar.get_width() / 2, height),
+                        xytext=(0, 3),
+                        textcoords="offset points",
+                        ha='center', va='bottom', fontsize=8)
 
-            st.pyplot(fig)
-    else:
-        with col1:
-            st.info("La colonne 'Delta' ne contient pas de valeurs valides.")
+        st.pyplot(fig)
 else:
     with col1:
-        st.info("Colonne 'Delta' absente.")
+        st.info("La colonne 'Delta' ne contient pas de valeurs valides ou est absente.")
 
 # ➤ Graphique Souffrance
-if 'Souffrance' in df_filtered.columns:
-    souffrance_non_null = df_filtered['Souffrance'].astype(str).str.strip().replace({'', 'nan', 'NaN', 'None'}, None).dropna()
-    count_souffrance = len(souffrance_non_null)
-    total = len(df_filtered)
+count_souffrance_val, total_rows = count_souffrance(df_filtered)
 
-    if total > 0:
-        with col2:
-            st.subheader("⚠️ Analyse Souffrance")
-            st.markdown(f"**{count_souffrance} BL** sur **{total}** ont une mention Souffrance")
+if total_rows > 0 and 'Souffrance' in df_filtered.columns:
+    with col2:
+        st.subheader("⚠️ Analyse Souffrance")
+        st.markdown(f"**{count_souffrance_val} BL** sur **{total_rows}** ont une mention Souffrance")
 
-            labels = ['Avec Souffrance', 'Sans Souffrance']
-            sizes = [count_souffrance, total - count_souffrance]
-            colors = [COLOR_ALERT, COLOR_PRIMARY]
+        labels = ['Avec Souffrance', 'Sans Souffrance']
+        sizes = [count_souffrance_val, total_rows - count_souffrance_val]
+        colors = [COLOR_ALERT, COLOR_PRIMARY]
 
-            fig2, ax2 = plt.subplots(figsize=(5, 3))
-            wedges, texts, autotexts = ax2.pie(
-                sizes,
-                labels=labels,
-                autopct='%1.1f%%',
-                startangle=90,
-                colors=colors,
-                textprops={'fontsize': 8}
-            )
-            for txt in texts + autotexts:
-                txt.set_fontsize(8)
-            ax2.axis('equal')
-            ax2.set_title("Proportion des BL avec Souffrance", fontsize=9)
+        fig2, ax2 = plt.subplots(figsize=(5, 3))
+        wedges, texts, autotexts = ax2.pie(
+            sizes,
+            labels=labels,
+            autopct='%1.1f%%',
+            startangle=90,
+            colors=colors,
+            textprops={'fontsize': 8}
+        )
+        for txt in texts + autotexts:
+            txt.set_fontsize(8)
+        ax2.axis('equal')
+        ax2.set_title("Proportion des BL avec Souffrance", fontsize=9)
 
-            st.pyplot(fig2)
-    else:
-        with col2:
-            st.info("Aucune donnée analysable dans la colonne 'Souffrance'.")
+        st.pyplot(fig2)
 else:
     with col2:
-        st.info("Colonne 'Souffrance' absente.")
+        st.info("Colonne 'Souffrance' absente ou aucune donnée analysable.")
 
 # 📤 Export CSV / Excel
 csv = df_display.to_csv(index=False).encode('utf-8')
