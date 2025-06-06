@@ -63,7 +63,7 @@ with st.sidebar:
         else:
             st.warning("Veuillez sélectionner une **plage de deux dates**.")
 
-    if 'Type_Transport' in df_filtered.columns:
+    if 'Type Transport' in df_filtered.columns:
         uniques = df_filtered['Type_Transport'].dropna().unique()
         if len(uniques) > 0:
             selected = st.selectbox(
