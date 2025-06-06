@@ -6,11 +6,12 @@ import matplotlib.pyplot as plt
 
 st.set_page_config(page_title="Statistiques DIM", layout="wide")
 
-# 📌 Mettre le bouton de refresh ici dans la sidebar AVANT le chargement
+# 📌 BOUTON DE REFRESH DANS LA SIDEBAR, dans une interaction
 with st.sidebar:
+    st.header("🔄 Rafraîchissement")
     if st.button("🔁 Recharger les données"):
         st.cache_data.clear()
-        st.experimental_rerun()
+        st.rerun()  # ✅ st.rerun() est la nouvelle méthode stable (à partir de v1.25)
 
 @st.cache_data
 def load_csv_from_url():
@@ -24,6 +25,7 @@ def load_csv_from_url():
     df = pd.read_csv(io.StringIO(content), sep=';', engine='python')
     df.columns = [col.strip() for col in df.columns]
     return df
+
 
 
 st.title("📦 Statistiques DIM (Sobotram)")
