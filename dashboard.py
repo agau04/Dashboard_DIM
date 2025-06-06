@@ -27,7 +27,7 @@ def load_csv_from_url():
 
 
 
-st.title("📦 Statistiques DIM (Sobotram)")
+st.title("📦 Statistiques DIM")
 
 df = load_csv_from_url()
 
