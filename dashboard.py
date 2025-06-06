@@ -67,7 +67,7 @@ with st.sidebar:
         uniques = df_filtered['Type_Transport'].dropna().unique()
         if len(uniques) > 0:
             selected = st.selectbox(
-                "Type_Transport",
+                "🚛 Type Transport",
                 options=["(Tous)"] + sorted(uniques)
             )
             if selected != "(Tous)":
