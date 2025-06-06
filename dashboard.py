@@ -15,7 +15,7 @@ BACKGROUND_COLOR = '#F9F9F9'  # Fond clair pour les graphes
 with st.sidebar:
     if st.button("🔁 Recharger les données"):
         st.cache_data.clear()
-        st.experimental_rerun()  # st.rerun() deprecated, experimental_rerun est stable
+        st.rerun()  # ✅ Redémarre l'app avec les nouvelles données
 
 @st.cache_data(ttl=600)  # Cache 10 min
 def load_csv_from_url():
