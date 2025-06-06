@@ -6,6 +6,11 @@ import matplotlib.pyplot as plt
 
 st.set_page_config(page_title="Statistiques DIM", layout="wide")
 
+# 🔁 Bouton pour forcer une actualisation
+if st.sidebar.button("🔁 Recharger les données"):
+    st.cache_data.clear()
+    st.experimental_rerun()
+
 @st.cache_data
 def load_csv_from_url():
     url = "https://sobotram.teliway.com:443/appli/vsobotram/main/extraction.php?sAction=export&idDo=173&sCle=KPI_DIM&sTypeResultat=csv"
@@ -23,12 +28,14 @@ st.title("📦 Statistiques DIM (Sobotram)")
 
 df = load_csv_from_url()
 
+# Transformation date
 if 'Date_BE' in df.columns:
     df['Date_BE_dt'] = pd.to_datetime(df['Date_BE'], errors='coerce')
     df = df.dropna(subset=['Date_BE_dt'])
 
 df_filtered = df.copy()
 
+# 🎛️ Filtres
 with st.sidebar:
     st.header("🔍 Filtres")
 
@@ -63,25 +70,19 @@ with st.sidebar:
             if selected != "(Tous)":
                 df_filtered = df_filtered[df_filtered['Type_Transport'] == selected]
 
-st.markdown(
-    """
-    <style>
-    .css-1d391kg {
-        max-width: 1200px !important;
-    }
-    </style>
-    """, unsafe_allow_html=True
-)
-
-# Affichage du tableau plein largeur
+# 🧾 Tableau principal
 st.subheader("📋 Données filtrées")
 df_display = df_filtered.drop(columns=['Date_BE_dt'], errors='ignore').reset_index(drop=True)
 st.dataframe(df_display, use_container_width=True)
 
-# Création de deux colonnes pour les graphiques côte à côte
+# 🎨 Couleurs globales
+COLOR_PRIMARY = '#4E79A7'  # Bleu
+COLOR_ALERT = '#E15759'    # Rouge
+
+# 📊 Graphiques
 col1, col2 = st.columns(2)
 
-# Graphique Delta dans col1
+# ➤ Graphique Delta
 if 'Delta' in df_filtered.columns:
     df_filtered['Delta_clean'] = (
         df_filtered['Delta']
@@ -97,10 +98,10 @@ if 'Delta' in df_filtered.columns:
         delta_counts = delta_counts[delta_counts.index <= 30]
 
         with col1:
-            st.subheader("📊 Répartition des délais de livraison (colonne Delta)")
+            st.subheader("📊 Répartition des délais de livraison (Delta)")
 
             fig, ax = plt.subplots(figsize=(5, 3))
-            bars = ax.bar(delta_counts.index.astype(str), delta_counts.values, color='#4E79A7')
+            bars = ax.bar(delta_counts.index.astype(str), delta_counts.values, color=COLOR_PRIMARY)
 
             ax.set_xlabel('Délai de livraison (jours)', fontsize=9)
             ax.set_ylabel("Nombre d'expéditions", fontsize=9)
@@ -120,26 +121,25 @@ if 'Delta' in df_filtered.columns:
             st.pyplot(fig)
     else:
         with col1:
-            st.info("La colonne 'Delta' ne contient pas de valeurs valides pour le graphique.")
+            st.info("La colonne 'Delta' ne contient pas de valeurs valides.")
 else:
     with col1:
-        st.info("Aucune colonne 'Delta' trouvée pour générer un graphique.")
+        st.info("Colonne 'Delta' absente.")
 
-# Graphique Souffrance dans col2
+# ➤ Graphique Souffrance
 if 'Souffrance' in df_filtered.columns:
     souffrance_non_null = df_filtered['Souffrance'].astype(str).str.strip().replace({'', 'nan', 'NaN', 'None'}, None).dropna()
     count_souffrance = len(souffrance_non_null)
     total = len(df_filtered)
 
     if total > 0:
-        pct_souffrance = (count_souffrance / total) * 100
         with col2:
             st.subheader("⚠️ Analyse Souffrance")
             st.markdown(f"**{count_souffrance} BL** sur **{total}** ont une mention Souffrance")
 
-            labels = ['Avec mention Souffrance', 'Sans mention Souffrance']
+            labels = ['Avec Souffrance', 'Sans Souffrance']
             sizes = [count_souffrance, total - count_souffrance]
-            colors = ['#E15759', '#4E79A7']
+            colors = [COLOR_ALERT, COLOR_PRIMARY]
 
             fig2, ax2 = plt.subplots(figsize=(5, 3))
             wedges, texts, autotexts = ax2.pie(
@@ -158,13 +158,12 @@ if 'Souffrance' in df_filtered.columns:
             st.pyplot(fig2)
     else:
         with col2:
-            st.info("Aucune donnée pour analyser la colonne 'Souffrance'.")
+            st.info("Aucune donnée analysable dans la colonne 'Souffrance'.")
 else:
     with col2:
-        st.info("La colonne 'Souffrance' est absente des données.")
+        st.info("Colonne 'Souffrance' absente.")
 
-
-# Boutons d'export
+# 📤 Export CSV / Excel
 csv = df_display.to_csv(index=False).encode('utf-8')
 st.download_button("📥 Export CSV", data=csv, file_name='export_dynamique.csv', mime='text/csv')
 
@@ -173,7 +172,7 @@ with pd.ExcelWriter(excel_buffer, engine='xlsxwriter') as writer:
     df_display.to_excel(writer, sheet_name='Données', index=False)
 st.download_button(
     "📥 Export Excel",
-    data=excel_buffer,
+    data=excel_buffer.getvalue(),
     file_name='export_dynamique.xlsx',
     mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
 )
