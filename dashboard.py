@@ -6,13 +6,18 @@ import matplotlib.pyplot as plt
 
 st.set_page_config(page_title="Statistiques DIM", layout="wide")
 
+# --- Couleurs & Styles ---
+COLOR_PRIMARY = '#4E79A7'  # Bleu
+COLOR_ALERT = '#E15759'    # Rouge
+BACKGROUND_COLOR = '#F9F9F9'  # Fond clair pour les graphes
+
 # 📌 Bouton de refresh dans la sidebar, dans une interaction
 with st.sidebar:
     if st.button("🔁 Recharger les données"):
         st.cache_data.clear()
-        st.rerun()  # méthode stable pour rerun
+        st.experimental_rerun()  # st.rerun() deprecated, experimental_rerun est stable
 
-@st.cache_data(ttl=600)  # Cache 5 minutes
+@st.cache_data(ttl=600)  # Cache 10 min
 def load_csv_from_url():
     url = "https://sobotram.teliway.com:443/appli/vsobotram/main/extraction.php?sAction=export&idDo=173&sCle=KPI_DIM&sTypeResultat=csv"
     try:
@@ -20,7 +25,7 @@ def load_csv_from_url():
         response.raise_for_status()
     except Exception as e:
         st.error(f"Erreur lors du chargement des données : {e}")
-        return pd.DataFrame()  # Retourne dataframe vide pour éviter crash
+        return pd.DataFrame()
     try:
         content = response.content.decode('utf-8')
     except UnicodeDecodeError:
@@ -61,6 +66,63 @@ def count_souffrance(df: pd.DataFrame):
         .dropna()
     )
     return len(souffrance_non_null), len(df)
+
+def plot_delta(delta_counts):
+    fig, ax = plt.subplots(figsize=(6, 3), facecolor=BACKGROUND_COLOR)
+    bars = ax.bar(delta_counts.index.astype(str), delta_counts.values, color=COLOR_PRIMARY, edgecolor='none')
+
+    ax.set_xlabel('Délai de livraison (jours)', fontsize=10, color='#333')
+    ax.set_ylabel("Nombre d'expéditions", fontsize=10, color='#333')
+    ax.set_title('Répartition des délais de livraison', fontsize=12, fontweight='bold', color='#222')
+
+    ax.spines['right'].set_visible(False)
+    ax.spines['top'].set_visible(False)
+    ax.spines['left'].set_color('#AAA')
+    ax.spines['bottom'].set_color('#AAA')
+
+    ax.grid(axis='y', linestyle='--', alpha=0.3)
+    ax.set_ylim(0, max(delta_counts.values)*1.15)
+
+    ax.tick_params(axis='x', colors='#555', labelsize=9)
+    ax.tick_params(axis='y', colors='#555', labelsize=9)
+
+    for bar in bars:
+        height = bar.get_height()
+        ax.annotate(f'{int(height)}',
+                    xy=(bar.get_x() + bar.get_width() / 2, height),
+                    xytext=(0, 4),
+                    textcoords="offset points",
+                    ha='center', va='bottom',
+                    fontsize=8,
+                    color=COLOR_PRIMARY,
+                    fontweight='bold')
+
+    fig.tight_layout()
+    return fig
+
+def plot_souffrance(count_souffrance, total):
+    labels = ['Avec Souffrance', 'Sans Souffrance']
+    sizes = [count_souffrance, total - count_souffrance]
+    colors = [COLOR_ALERT, COLOR_PRIMARY]
+
+    fig, ax = plt.subplots(figsize=(6, 3), facecolor=BACKGROUND_COLOR)
+    wedges, texts, autotexts = ax.pie(
+        sizes,
+        labels=labels,
+        autopct='%1.1f%%',
+        startangle=90,
+        colors=colors,
+        textprops={'fontsize': 10, 'color': '#333', 'fontweight': 'bold'}
+    )
+    for txt in texts + autotexts:
+        txt.set_fontsize(10)
+        txt.set_color('#444')
+
+    ax.axis('equal')
+    ax.set_title("Proportion des BL avec Souffrance", fontsize=12, fontweight='bold', color='#222')
+
+    fig.tight_layout()
+    return fig
 
 # --- MAIN ---
 
@@ -114,9 +176,6 @@ st.subheader("📋 Données brut")
 df_display = df_filtered.drop(columns=['Date_BE_dt'], errors='ignore').reset_index(drop=True)
 st.dataframe(df_display, use_container_width=True)
 
-COLOR_PRIMARY = '#4E79A7'  # Bleu
-COLOR_ALERT = '#E15759'    # Rouge
-
 col1, col2 = st.columns(2)
 
 # ➤ Graphique Delta
@@ -130,24 +189,7 @@ if len(delta_non_null) > 0:
         st.subheader("📊 Répartition des délais de livraison (Delta)")
         st.markdown(f"**{len(delta_non_null)} BL** livrés avec un délai mesuré")
 
-        fig, ax = plt.subplots(figsize=(5, 3))
-        bars = ax.bar(delta_counts.index.astype(str), delta_counts.values, color=COLOR_PRIMARY)
-
-        ax.set_xlabel('Délai de livraison (jours)', fontsize=9)
-        ax.set_ylabel("Nombre d'expéditions", fontsize=9)
-        ax.set_title('Répartition des délais de livraison', fontsize=10)
-        ax.tick_params(axis='both', labelsize=8)
-        ax.grid(axis='y', linestyle='--', alpha=0.7)
-        ax.set_ylim(0, max(delta_counts.values) * 1.1)
-
-        for bar in bars:
-            height = bar.get_height()
-            ax.annotate(f'{int(height)}',
-                        xy=(bar.get_x() + bar.get_width() / 2, height),
-                        xytext=(0, 3),
-                        textcoords="offset points",
-                        ha='center', va='bottom', fontsize=8)
-
+        fig = plot_delta(delta_counts)
         st.pyplot(fig)
 else:
     with col1:
@@ -161,24 +203,7 @@ if total_rows > 0 and 'Souffrance' in df_filtered.columns:
         st.subheader("⚠️ Analyse Souffrance")
         st.markdown(f"**{count_souffrance_val} BL** sur **{total_rows}** ont une mention Souffrance")
 
-        labels = ['Avec Souffrance', 'Sans Souffrance']
-        sizes = [count_souffrance_val, total_rows - count_souffrance_val]
-        colors = [COLOR_ALERT, COLOR_PRIMARY]
-
-        fig2, ax2 = plt.subplots(figsize=(5, 3))
-        wedges, texts, autotexts = ax2.pie(
-            sizes,
-            labels=labels,
-            autopct='%1.1f%%',
-            startangle=90,
-            colors=colors,
-            textprops={'fontsize': 8}
-        )
-        for txt in texts + autotexts:
-            txt.set_fontsize(8)
-        ax2.axis('equal')
-        ax2.set_title("Proportion des BL avec Souffrance", fontsize=9)
-
+        fig2 = plot_souffrance(count_souffrance_val, total_rows)
         st.pyplot(fig2)
 else:
     with col2:
