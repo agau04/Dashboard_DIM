@@ -95,7 +95,7 @@ def plot_delta(delta_counts):
                     ha='center', va='bottom',
                     fontsize=8,
                     color=COLOR_PRIMARY,
-                    fontweight='bold')
+                    )
 
     fig.tight_layout()
     return fig
