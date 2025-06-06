@@ -73,7 +73,7 @@ def plot_delta(delta_counts):
 
     ax.set_xlabel('Délai de livraison (jours)', fontsize=10, color='#333')
     ax.set_ylabel("Nombre d'expéditions", fontsize=10, color='#333')
-    ax.set_title('Répartition des délais de livraison', fontsize=12, fontweight='bold', color='#222')
+    ax.set_title('Répartition des délais de livraison', fontsize=12, color='#222')
 
     ax.spines['right'].set_visible(False)
     ax.spines['top'].set_visible(False)
@@ -119,7 +119,7 @@ def plot_souffrance(count_souffrance, total):
         txt.set_color('#444')
 
     ax.axis('equal')
-    ax.set_title("Proportion des BL avec Souffrance", fontsize=12, fontweight='bold', color='#222')
+    ax.set_title("Proportion des BL avec Souffrance", fontsize=12, color='#222')
 
     fig.tight_layout()
     return fig
