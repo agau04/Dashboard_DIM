@@ -8,7 +8,6 @@ st.set_page_config(page_title="Statistiques DIM", layout="wide")
 
 # 📌 BOUTON DE REFRESH DANS LA SIDEBAR, dans une interaction
 with st.sidebar:
-    st.header("🔄 Rafraîchissement")
     if st.button("🔁 Recharger les données"):
         st.cache_data.clear()
         st.rerun()  # ✅ st.rerun() est la nouvelle méthode stable (à partir de v1.25)
