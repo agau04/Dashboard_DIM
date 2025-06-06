@@ -27,7 +27,7 @@ def load_csv_from_url():
 
 
 
-st.title("📦 Statistiques DIM")
+st.title("📦 KPI Transport DIM")
 
 df = load_csv_from_url()
 
