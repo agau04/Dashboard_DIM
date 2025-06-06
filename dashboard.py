@@ -112,7 +112,7 @@ def plot_souffrance(count_souffrance, total):
         autopct='%1.1f%%',
         startangle=90,
         colors=colors,
-        textprops={'fontsize': 10, 'color': '#333', 'fontweight': 'bold'}
+        textprops={'fontsize': 10, 'color': '#333'}
     )
     for txt in texts + autotexts:
         txt.set_fontsize(10)
