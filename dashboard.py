@@ -7,9 +7,9 @@ import matplotlib.pyplot as plt
 st.set_page_config(page_title="Statistiques DIM", layout="wide")
 
 # --- Couleurs & Styles ---
-COLOR_PRIMARY = "#2BC559"  # Bleu
-COLOR_ALERT = "#C72B2E"    # Rouge
-BACKGROUND_COLOR = "#FFFFFF"  # Fond clair pour les graphes
+COLOR_PRIMARY = '#4E79A7'  # Bleu
+COLOR_ALERT = '#E15759'    # Rouge
+BACKGROUND_COLOR = '#F9F9F9'  # Fond clair pour les graphes
 
 # 📌 Bouton de refresh dans la sidebar, dans une interaction
 with st.sidebar:
@@ -73,7 +73,7 @@ def plot_delta(delta_counts):
 
     ax.set_xlabel('Délai de livraison (jours)', fontsize=10, color='#333')
     ax.set_ylabel("Nombre d'expéditions", fontsize=10, color='#333')
-    ax.set_title('Répartition des délais de livraison', fontsize=12, color='#222')
+    ax.set_title('Répartition des délais de livraison', fontsize=12, fontweight='bold', color='#222')
 
     ax.spines['right'].set_visible(False)
     ax.spines['top'].set_visible(False)
@@ -90,12 +90,12 @@ def plot_delta(delta_counts):
         height = bar.get_height()
         ax.annotate(f'{int(height)}',
                     xy=(bar.get_x() + bar.get_width() / 2, height),
-                    xytext=(0, 6),
+                    xytext=(0, 4),
                     textcoords="offset points",
                     ha='center', va='bottom',
                     fontsize=8,
                     color=COLOR_PRIMARY,
-                    )
+                    fontweight='bold')
 
     fig.tight_layout()
     return fig
@@ -112,14 +112,14 @@ def plot_souffrance(count_souffrance, total):
         autopct='%1.1f%%',
         startangle=90,
         colors=colors,
-        textprops={'fontsize': 10, 'color': '#333'}
+        textprops={'fontsize': 10, 'color': '#333', 'fontweight': 'bold'}
     )
     for txt in texts + autotexts:
         txt.set_fontsize(10)
         txt.set_color('#444')
 
     ax.axis('equal')
-    ax.set_title("Proportion des BL avec Souffrance", fontsize=12, color='#222')
+    ax.set_title("Proportion des BL avec Souffrance", fontsize=12, fontweight='bold', color='#222')
 
     fig.tight_layout()
     return fig
