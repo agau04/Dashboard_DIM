@@ -6,10 +6,11 @@ import matplotlib.pyplot as plt
 
 st.set_page_config(page_title="Statistiques DIM", layout="wide")
 
-# 🔁 Bouton pour forcer une actualisation
-if st.sidebar.button("🔁 Recharger les données"):
-    st.cache_data.clear()
-    st.experimental_rerun()
+# 📌 Mettre le bouton de refresh ici dans la sidebar AVANT le chargement
+with st.sidebar:
+    if st.button("🔁 Recharger les données"):
+        st.cache_data.clear()
+        st.experimental_rerun()
 
 @st.cache_data
 def load_csv_from_url():
@@ -23,6 +24,7 @@ def load_csv_from_url():
     df = pd.read_csv(io.StringIO(content), sep=';', engine='python')
     df.columns = [col.strip() for col in df.columns]
     return df
+
 
 st.title("📦 Statistiques DIM (Sobotram)")
 
