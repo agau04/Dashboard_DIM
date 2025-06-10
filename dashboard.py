@@ -265,7 +265,7 @@ else:
     with col1:
         st.info("La colonne 'Delta' ne contient pas de valeurs valides ou est absente.")
 
-df_filtered_souffrance = df_filtered[df_filtered['Date_départ'].notna()]
+df_filtered_souffrance = df_filtered[df_filtered['Date_valeur'].notna()]
 count_souffrance_val, total_rows = count_souffrance(df_filtered_souffrance)
 
 if total_rows > 0 and 'Souffrance' in df_filtered.columns:
