@@ -256,7 +256,7 @@ if len(delta_non_null) > 0:
     delta_counts = delta_counts[delta_counts.index <= 30]
 
     with col1:
-        st.subheader("📊 Répartition des délais de livraison (Delta)")
+        st.subheader("📊 Répartition des délais de livraison")
         st.markdown(f"**{len(delta_non_null)} BL** livrés avec un délai mesuré")
 
         fig = plot_delta(delta_counts)
