@@ -267,7 +267,7 @@ else:
 
 # --- Filtrer uniquement pour le graphe Souffrance ---
 if 'Date_valeur' in df_filtered.columns:
-    df_filtered_souffrance = df_filtered[df_filtered['Date_valeur'].notna()]
+    df_filtered_souffrance = df_filtered[df_filtered['Date_depart'].notna()]
 else:
     df_filtered_souffrance = df_filtered.copy()
 
