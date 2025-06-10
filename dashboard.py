@@ -265,7 +265,8 @@ else:
     with col1:
         st.info("La colonne 'Delta' ne contient pas de valeurs valides ou est absente.")
 
-count_souffrance_val, total_rows = count_souffrance(df_filtered)
+df_filtered_souffrance = df_filtered[df_filtered['Date_départ'].notna()]
+count_souffrance_val, total_rows = count_souffrance(df_filtered_souffrance)
 
 if total_rows > 0 and 'Souffrance' in df_filtered.columns:
     with col2:
@@ -282,7 +283,7 @@ st.subheader("🗺️ Carte : Délai moyen de livraison par département")
 
 map_object = create_departement_map_delta(df_filtered)
 if map_object:
-    st_folium(map_object, width=1400, height=500)
+    st_folium(map_object, width=1700, height=500)
 else:
     st.info("Pas de données valides pour afficher la carte.")
 
