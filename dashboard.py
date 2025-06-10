@@ -3,6 +3,8 @@ import pandas as pd
 import io
 import requests
 import matplotlib.pyplot as plt
+from streamlit_folium import st_folium
+import folium
 
 st.set_page_config(page_title="Statistiques DIM", layout="wide")
 
@@ -11,13 +13,13 @@ COLOR_PRIMARY = "#619CDA"  # Bleu
 COLOR_ALERT = '#E15759'    # Rouge
 BACKGROUND_COLOR = '#F9F9F9'  # Fond clair pour les graphes
 
-# 📌 Bouton de refresh dans la sidebar, dans une interaction
+# Bouton refresh dans sidebar
 with st.sidebar:
     if st.button("🔁 Recharger les données"):
         st.cache_data.clear()
-        st.rerun()  # ✅ Redémarre l'app avec les nouvelles données
+        st.experimental_rerun()
 
-@st.cache_data(ttl=600)  # Cache 10 min
+@st.cache_data(ttl=600)
 def load_csv_from_url():
     url = "https://sobotram.teliway.com:443/appli/vsobotram/main/extraction.php?sAction=export&idDo=173&sCle=KPI_DIM&sTypeResultat=csv"
     try:
@@ -68,6 +70,7 @@ def count_souffrance(df: pd.DataFrame):
     return len(souffrance_non_null), len(df)
 
 def plot_delta(delta_counts):
+    total = delta_counts.sum()  # total des expéditions
     fig, ax = plt.subplots(figsize=(6, 3), facecolor=BACKGROUND_COLOR)
     bars = ax.bar(delta_counts.index.astype(str), delta_counts.values, color=COLOR_PRIMARY, edgecolor='none')
 
@@ -81,14 +84,15 @@ def plot_delta(delta_counts):
     ax.spines['bottom'].set_color('#AAA')
 
     ax.grid(axis='y', linestyle='--', alpha=0.3)
-    ax.set_ylim(0, max(delta_counts.values)*1.15)
+    ax.set_ylim(0, max(delta_counts.values)*1.25)
 
     ax.tick_params(axis='x', colors='#555', labelsize=9)
     ax.tick_params(axis='y', colors='#555', labelsize=9)
 
     for bar in bars:
         height = bar.get_height()
-        ax.annotate(f'{int(height)}',
+        pct = height / total * 100
+        ax.annotate(f'{int(height)}\n({pct:.0f}%)',
                     xy=(bar.get_x() + bar.get_width() / 2, height),
                     xytext=(0, 4),
                     textcoords="offset points",
@@ -99,6 +103,7 @@ def plot_delta(delta_counts):
 
     fig.tight_layout()
     return fig
+
 
 def plot_souffrance(count_souffrance, total):
     labels = ['Avec Souffrance', 'Sans Souffrance']
@@ -124,6 +129,72 @@ def plot_souffrance(count_souffrance, total):
     fig.tight_layout()
     return fig
 
+@st.cache_data(ttl=300)
+def extract_departements(df: pd.DataFrame) -> pd.DataFrame:
+    if 'CP' in df.columns:
+        df['Departement'] = df['CP'].astype(str).str[:2]
+        df = df[df['Departement'].str.match(r'^\d{2}$')]
+    else:
+        df['Departement'] = None
+    return df
+
+@st.cache_data(ttl=86400)
+def load_geojson():
+    url = "https://france-geojson.gregoiredavid.fr/repo/departements.geojson"
+    response = requests.get(url)
+    response.raise_for_status()
+    return response.json()
+
+def create_departement_map_delta(df: pd.DataFrame):
+    # Nettoyer et convertir Delta
+    delta_clean = (
+        df['Delta']
+        .astype(str)
+        .str.strip()
+        .replace({'--': None, 'NC': None, '': None, 'nan': None, 'NaN': None, 'None': None})
+    )
+    delta_clean = pd.to_numeric(delta_clean, errors='coerce')
+
+    df = df.copy()
+    df['Delta_clean'] = delta_clean
+
+    # Ne garder que les lignes où Date_liv est non null
+    if 'Date_liv' in df.columns:
+        df = df[df['Date_liv'].notna()]
+    else:
+        st.warning("Colonne 'Date_liv' absente. Aucun filtre appliqué.")
+
+    df = extract_departements(df)
+    df = df.dropna(subset=['Delta_clean', 'Departement'])
+
+    if df.empty:
+        st.warning("Pas de données valides pour calculer la moyenne Delta par département.")
+        return None
+
+    delta_moyen = df.groupby('Departement')['Delta_clean'].mean()
+    delta_moyen.index = delta_moyen.index.astype(str).str.zfill(2)
+
+    geojson = load_geojson()
+
+    m = folium.Map(location=[46.5, 2.5], zoom_start=6, tiles="CartoDB positron")
+
+    folium.Choropleth(
+        geo_data=geojson,
+        name="Délai moyen de livraison par France",
+        data=delta_moyen,
+        columns=[delta_moyen.index, delta_moyen.values],
+        key_on="feature.properties.code",
+        fill_color="YlOrRd",
+        fill_opacity=0.7,
+        line_opacity=0.2,
+        legend_name="Délai moyen de livraison (jours)",
+        nan_fill_color='white',
+    ).add_to(m)
+
+    folium.LayerControl().add_to(m)
+    return m
+    
+
 # --- MAIN ---
 
 st.title("📦 KPI Transport DIM")
@@ -138,7 +209,6 @@ df = preprocess_df(df)
 
 df_filtered = df.copy()
 
-# 🎛️ Filtres dans sidebar
 with st.sidebar:
     st.header("🔍 Filtres")
 
@@ -171,14 +241,14 @@ with st.sidebar:
             if selected != "(Tous)":
                 df_filtered = df_filtered[df_filtered['Type_Transport'] == selected]
 
-# 🧾 Tableau principal
+df_filtered = extract_departements(df_filtered)
+
 st.subheader("📋 Données brut")
 df_display = df_filtered.drop(columns=['Date_BE_dt'], errors='ignore').reset_index(drop=True)
 st.dataframe(df_display, use_container_width=True)
 
 col1, col2 = st.columns(2)
 
-# ➤ Graphique Delta
 delta_non_null = clean_delta_column(df_filtered)
 
 if len(delta_non_null) > 0:
@@ -195,7 +265,6 @@ else:
     with col1:
         st.info("La colonne 'Delta' ne contient pas de valeurs valides ou est absente.")
 
-# ➤ Graphique Souffrance
 count_souffrance_val, total_rows = count_souffrance(df_filtered)
 
 if total_rows > 0 and 'Souffrance' in df_filtered.columns:
@@ -209,7 +278,14 @@ else:
     with col2:
         st.info("Colonne 'Souffrance' absente ou aucune donnée analysable.")
 
-# 📤 Export CSV / Excel
+st.subheader("🗺️ Carte : Délai moyen de livraison par département")
+
+map_object = create_departement_map_delta(df_filtered)
+if map_object:
+    st_folium(map_object, width=700, height=500)
+else:
+    st.info("Pas de données valides pour afficher la carte.")
+
 csv = df_display.to_csv(index=False).encode('utf-8')
 st.download_button("📥 Export CSV", data=csv, file_name='export_dynamique.csv', mime='text/csv')
 
