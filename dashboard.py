@@ -282,7 +282,7 @@ st.subheader("🗺️ Carte : Délai moyen de livraison par département")
 
 map_object = create_departement_map_delta(df_filtered)
 if map_object:
-    st_folium(map_object, width=700, height=500)
+    st_folium(map_object, width=1400, height=500)
 else:
     st.info("Pas de données valides pour afficher la carte.")
 
