@@ -265,18 +265,24 @@ else:
     with col1:
         st.info("La colonne 'Delta' ne contient pas de valeurs valides ou est absente.")
 
-count_souffrance_val, total_rows = count_souffrance(df_filtered)
+# --- Filtrer uniquement pour le graphe Souffrance ---
+if 'Date_valeur' in df_filtered.columns:
+    df_filtered_souffrance = df_filtered[df_filtered['Date_valeur'].notna()]
+else:
+    df_filtered_souffrance = df_filtered.copy()
 
-if total_rows > 0 and 'Souffrance' in df_filtered.columns:
+count_souffrance_val, total_rows = count_souffrance(df_filtered_souffrance)
+
+if total_rows > 0 and 'Souffrance' in df_filtered_souffrance.columns:
     with col2:
         st.subheader("⚠️ Analyse Souffrance")
         st.markdown(f"**{count_souffrance_val} BL** sur **{total_rows}** ont une mention Souffrance")
-
         fig2 = plot_souffrance(count_souffrance_val, total_rows)
         st.pyplot(fig2)
 else:
     with col2:
         st.info("Colonne 'Souffrance' absente ou aucune donnée analysable.")
+
 
 st.subheader("🗺️ Carte : Délai moyen de livraison par département")
 
