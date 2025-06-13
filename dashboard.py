@@ -1,10 +1,10 @@
 import streamlit as st
 import pandas as pd
+import numpy as np
 import io
 import requests
 import matplotlib.pyplot as plt
-from streamlit_folium import st_folium
-import folium
+import holidays
 
 st.set_page_config(page_title="Statistiques DIM", layout="wide")
 
@@ -12,6 +12,9 @@ st.set_page_config(page_title="Statistiques DIM", layout="wide")
 COLOR_PRIMARY = "#619CDA"
 COLOR_ALERT = '#E15759'
 BACKGROUND_COLOR = '#F9F9F9'
+
+# Initialiser les jours fériés France
+fr_holidays = holidays.France(years=range(2020, 2031))
 
 # Bouton refresh
 with st.sidebar:
@@ -40,18 +43,34 @@ def load_csv_from_url():
 def preprocess_df(df: pd.DataFrame):
     if 'Date_BE' in df.columns:
         df['Date_BE_dt'] = pd.to_datetime(df['Date_BE'], errors='coerce')
-        df = df.dropna(subset=['Date_BE_dt'])
+    if 'Date_depart' in df.columns:
+        df['Date_depart_dt'] = pd.to_datetime(df['Date_depart'], errors='coerce')
+    if 'Date_liv' in df.columns:
+        df['Date_liv_dt'] = pd.to_datetime(df['Date_liv'], errors='coerce')
+    return df
+
+def jours_ouvres(start, end):
+    if pd.isna(start) or pd.isna(end) or end < start:
+        return np.nan
+    start_np = np.datetime64(start.date())
+    end_np = np.datetime64(end.date())
+    hol_np = np.array([np.datetime64(d) for d in fr_holidays if start.date() < d <= end.date()], dtype='datetime64[D]')
+    jours = np.busday_count(start_np + 1, end_np + 1, holidays=hol_np)
+    return jours
+
+@st.cache_data(ttl=300)
+def calculate_delta_jours_ouvres(df: pd.DataFrame):
+    df['Delta_jours_ouvres'] = df.apply(
+        lambda row: jours_ouvres(row['Date_depart_dt'], row['Date_liv_dt']) if pd.notna(row['Date_depart_dt']) and pd.notna(row['Date_liv_dt']) else np.nan,
+        axis=1
+    )
     return df
 
 @st.cache_data(ttl=300)
 def clean_delta_column(df: pd.DataFrame):
     if 'Delta' not in df.columns:
         return pd.Series(dtype='float64')
-    delta_clean = (
-        df['Delta'].astype(str).str.strip().replace(
-            {'--': None, 'NC': None, '': None, 'nan': None, 'NaN': None, 'None': None}
-        )
-    )
+    delta_clean = df['Delta'].astype(str).str.strip().replace({'--': None, 'NC': None, '': None, 'nan': None, 'NaN': None, 'None': None})
     delta_clean = pd.to_numeric(delta_clean, errors='coerce')
     return delta_clean.dropna()
 
@@ -59,12 +78,17 @@ def clean_delta_column(df: pd.DataFrame):
 def count_souffrance(df: pd.DataFrame):
     if 'Souffrance' not in df.columns:
         return 0, 0
-    souffrance_non_null = (
-        df['Souffrance'].astype(str).str.strip().replace(
-            {'', 'nan', 'NaN', 'None'}, None
-        ).dropna()
-    )
+    souffrance_non_null = df['Souffrance'].astype(str).str.strip().replace({'', 'nan', 'NaN', 'None'}, None).dropna()
     return len(souffrance_non_null), len(df)
+
+@st.cache_data(ttl=300)
+def extract_departements(df: pd.DataFrame):
+    if 'CP' in df.columns:
+        df['Departement'] = df['CP'].astype(str).str[:2]
+        df = df[df['Departement'].str.match(r'^\d{2}$')]
+    else:
+        df['Departement'] = None
+    return df
 
 def plot_delta(delta_counts):
     total = delta_counts.sum()
@@ -90,7 +114,6 @@ def plot_delta(delta_counts):
                     fontsize=8,
                     color=COLOR_PRIMARY,
                     fontweight='bold')
-
     fig.tight_layout()
     return fig
 
@@ -107,57 +130,6 @@ def plot_souffrance(count, total):
     fig.tight_layout()
     return fig
 
-@st.cache_data(ttl=300)
-def extract_departements(df: pd.DataFrame):
-    if 'CP' in df.columns:
-        df['Departement'] = df['CP'].astype(str).str[:2]
-        df = df[df['Departement'].str.match(r'^\d{2}$')]
-    else:
-        df['Departement'] = None
-    return df
-
-@st.cache_data(ttl=86400)
-def load_geojson():
-    url = "https://france-geojson.gregoiredavid.fr/repo/departements.geojson"
-    response = requests.get(url)
-    response.raise_for_status()
-    return response.json()
-
-def create_departement_map_delta(df: pd.DataFrame):
-    if 'Delta' not in df.columns:
-        return None
-
-    df['Delta_clean'] = pd.to_numeric(df['Delta'], errors='coerce')
-    if 'Date_liv' in df.columns:
-        df = df[df['Date_liv'].notna()]
-    df = extract_departements(df)
-    df = df.dropna(subset=['Delta_clean', 'Departement'])
-
-    if df.empty:
-        return None
-
-    delta_moyen = df.groupby('Departement')['Delta_clean'].mean()
-    delta_moyen.index = delta_moyen.index.astype(str).str.zfill(2)
-
-    geojson = load_geojson()
-    m = folium.Map(location=[46.5, 2.5], zoom_start=6, tiles="CartoDB positron")
-
-    folium.Choropleth(
-        geo_data=geojson,
-        name="Délai moyen de livraison",
-        data=delta_moyen,
-        columns=[delta_moyen.index, delta_moyen.values],
-        key_on="feature.properties.code",
-        fill_color="YlOrRd",
-        fill_opacity=0.7,
-        line_opacity=0.2,
-        legend_name="Délai moyen (jours)",
-        nan_fill_color='white'
-    ).add_to(m)
-
-    folium.LayerControl().add_to(m)
-    return m
-
 # --- MAIN ---
 st.title("📦 KPI Transport DIM")
 
@@ -167,6 +139,8 @@ if df.empty:
     st.stop()
 
 df = preprocess_df(df)
+df = calculate_delta_jours_ouvres(df)
+
 df_filtered = df.copy()
 
 with st.sidebar:
@@ -180,7 +154,6 @@ with st.sidebar:
                 (df_filtered['Date_BE_dt'] >= pd.to_datetime(date_range[0])) &
                 (df_filtered['Date_BE_dt'] <= pd.to_datetime(date_range[1]))
             ]
-
     if 'Type_Transport' in df_filtered:
         options = df_filtered['Type_Transport'].dropna().unique()
         selected = st.selectbox("🚛 Type Transport", ["(Tous)"] + sorted(options))
@@ -190,30 +163,31 @@ with st.sidebar:
 df_filtered = extract_departements(df_filtered)
 
 st.subheader("📋 Données brutes")
-df_display = df_filtered.drop(columns=['Date_BE_dt'], errors='ignore').reset_index(drop=True)
+df_display = df_filtered.drop(columns=['Date_BE_dt', 'Date_depart_dt', 'Date_liv_dt'], errors='ignore').reset_index(drop=True)
 st.dataframe(df_display, use_container_width=True)
 
 col1, col2 = st.columns(2)
 
-# 🔍 Délai livraison
 if 'Date_liv' in df_filtered:
     df_delta = df_filtered[df_filtered['Date_liv'].notna()]
 else:
     df_delta = df_filtered
 
-delta_series = clean_delta_column(df_delta)
+# Utiliser la colonne Delta_jours_ouvres au lieu de Delta
+delta_series = df_delta['Delta_jours_ouvres'].dropna().astype(int)
+
 if not delta_series.empty:
     delta_counts = delta_series.value_counts().sort_index()
     delta_counts = delta_counts[delta_counts.index <= 30]
     with col1:
-        st.subheader("📊 Répartition des délais de livraison")
-        st.markdown(f"{len(delta_series)} BL avec un délai mesuré.")
+        st.subheader("📊 Répartition des délais de livraison (jours ouvrés)")
+        st.markdown(f"{len(delta_series)} BL avec un délai mesuré (jours ouvrés).")
         st.pyplot(plot_delta(delta_counts))
 else:
     with col1:
         st.info("Pas de données avec délai mesuré.")
 
-# 🔍 Souffrance
+
 df_souffrance = df_filtered[df_filtered.get('Date_depart', pd.Series([True]*len(df_filtered))).notna()]
 souff_count, total_rows = count_souffrance(df_souffrance)
 if total_rows > 0:
@@ -225,15 +199,6 @@ else:
     with col2:
         st.info("Pas de données analysables pour la souffrance.")
 
-# 🗺️ Carte
-st.subheader("🗺️ Carte : Délai moyen de livraison par département")
-map_ = create_departement_map_delta(df_filtered)
-if map_:
-    st_folium(map_, width=700, height=500)
-else:
-    st.info("Pas de données valides pour afficher la carte.")
-
-# 📥 Exports
 csv = df_display.to_csv(index=False).encode('utf-8')
 st.download_button("📥 Export CSV", data=csv, file_name='export_dynamique.csv', mime='text/csv')
 
