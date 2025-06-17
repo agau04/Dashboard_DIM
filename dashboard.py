@@ -47,7 +47,10 @@ def preprocess_df(df: pd.DataFrame):
         df['Date_depart_dt'] = pd.to_datetime(df['Date_depart'], errors='coerce')
     if 'Date_liv' in df.columns:
         df['Date_liv_dt'] = pd.to_datetime(df['Date_liv'], errors='coerce')
+    if 'Souffrance' in df.columns:
+        df['Souffrance'] = df['Souffrance'].astype(str).str.replace(r'[\r\n]+', ' ', regex=True).str.strip()
     return df
+
 
 def jours_ouvres(start, end):
     if pd.isna(start) or pd.isna(end) or end < start:
@@ -56,7 +59,7 @@ def jours_ouvres(start, end):
     end_np = np.datetime64(end.date())
     hol_np = np.array([np.datetime64(d) for d in fr_holidays if start.date() < d <= end.date()], dtype='datetime64[D]')
     jours = np.busday_count(start_np + 1, end_np + 1, holidays=hol_np)
-    return jours
+    return max(jours, 1)
 
 @st.cache_data(ttl=300)
 def calculate_delta_jours_ouvres(df: pd.DataFrame):
@@ -130,6 +133,48 @@ def plot_souffrance(count, total):
     fig.tight_layout()
     return fig
 
+def plot_souffrance_motifs(df):
+    if 'Souffrance' not in df.columns:
+        st.info("La colonne 'Souffrance' est absente.")
+        return None
+
+    # Nettoyer les valeurs vides / nulles
+    motifs = df['Souffrance'].astype(str).str.strip()
+    motifs = motifs.replace({'': None, 'nan': None, 'NaN': None, 'None': None})
+    motifs = motifs.dropna()
+
+    if motifs.empty:
+        st.info("Pas de motifs de souffrance valides dans les données.")
+        return None
+
+    counts = motifs.value_counts()
+
+    fig, ax = plt.subplots(figsize=(8, 4), facecolor=BACKGROUND_COLOR)
+    bars = ax.bar(counts.index, counts.values, color=COLOR_ALERT)
+    ax.set_xlabel("Motifs de souffrance", fontsize=10, color='#333')
+    ax.set_ylabel("Nombre d'occurrences", fontsize=10, color='#333')
+    ax.set_title("Répartition des motifs de souffrance", fontsize=12, fontweight='bold', color='#222')
+    ax.spines['right'].set_visible(False)
+    ax.spines['top'].set_visible(False)
+    ax.grid(axis='y', linestyle='--', alpha=0.3)
+    ax.set_ylim(0, max(counts.values)*1.2)
+    plt.xticks(rotation=45, ha='right')
+
+    # Affichage des valeurs au-dessus des barres
+    for bar in bars:
+        height = bar.get_height()
+        ax.annotate(f'{int(height)}',
+                    xy=(bar.get_x() + bar.get_width() / 2, height),
+                    xytext=(0, 4),
+                    textcoords="offset points",
+                    ha='center', va='bottom',
+                    fontsize=8,
+                    color=COLOR_ALERT,
+                    fontweight='bold')
+    fig.tight_layout()
+    return fig
+
+
 # --- MAIN ---
 st.title("📦 KPI Transport DIM")
 
@@ -198,6 +243,21 @@ if total_rows > 0:
 else:
     with col2:
         st.info("Pas de données analysables pour la souffrance.")
+
+if total_rows > 0:
+    with col2:
+        st.subheader("⚠️ Analyse Souffrance")
+        st.markdown(f"{souff_count} sur {total_rows} BL avec souffrance.")
+        st.pyplot(plot_souffrance(souff_count, total_rows))
+
+        # Ajouter le graphique des motifs
+        fig_motifs = plot_souffrance_motifs(df_souffrance)
+        if fig_motifs:
+            st.pyplot(fig_motifs)
+else:
+    with col2:
+        st.info("Pas de données analysables pour la souffrance.")
+
 
 csv = df_display.to_csv(index=False).encode('utf-8')
 st.download_button("📥 Export CSV", data=csv, file_name='export_dynamique.csv', mime='text/csv')
