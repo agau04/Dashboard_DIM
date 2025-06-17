@@ -180,24 +180,25 @@ def plot_livraison_kpi(df):
     sizes = [nb_livrees, nb_non_livrees]
     colors = [COLOR_ALERT, COLOR_PRIMARY]
 
-    def absolute_value(val):
+    def format_autopct(pct):
         total = sum(sizes)
-        count = int(round(val / 100 * total))
-        return f'{count}'
+        count = int(round(pct / 100 * total))
+        return f'{pct:.1f}%\n({count})'
 
     fig, ax = plt.subplots(figsize=(6, 3), facecolor=BACKGROUND_COLOR)
     wedges, texts, autotexts = ax.pie(
         sizes,
         labels=labels,
-        autopct=absolute_value,
+        autopct=format_autopct,
         startangle=90,
         colors=colors,
         textprops={'fontsize': 10, 'color': '#333', 'fontweight': 'bold'}
     )
     ax.axis('equal')
-    ax.set_title("Taux de livraison (en nombre)", fontsize=14, fontweight='bold', color='#222')
+    ax.set_title("Taux de livraison", fontsize=14, fontweight='bold', color='#222')
     fig.tight_layout()
     return fig
+
 
 
 # --- MAIN ---
