@@ -3,20 +3,17 @@ import pandas as pd
 import numpy as np
 import io
 import requests
-import matplotlib.pyplot as plt
+import plotly.graph_objects as go
 import holidays
 
 st.set_page_config(page_title="Statistiques DIM", layout="wide")
 
-# --- Couleurs & Styles ---
 COLOR_PRIMARY = "#619CDA"
 COLOR_ALERT = '#E15759'
 BACKGROUND_COLOR = '#F9F9F9'
 
-# Initialiser les jours fériés France
 fr_holidays = holidays.France(years=range(2020, 2031))
 
-# Bouton refresh
 with st.sidebar:
     if st.button("🔁 Recharger les données"):
         st.cache_data.clear()
@@ -40,13 +37,10 @@ def load_csv_from_url():
     return df
 
 @st.cache_data(ttl=300)
-def preprocess_df(df: pd.DataFrame):
-    if 'Date_BE' in df.columns:
-        df['Date_BE_dt'] = pd.to_datetime(df['Date_BE'], errors='coerce')
-    if 'Date_depart' in df.columns:
-        df['Date_depart_dt'] = pd.to_datetime(df['Date_depart'], errors='coerce')
-    if 'Date_liv' in df.columns:
-        df['Date_liv_dt'] = pd.to_datetime(df['Date_liv'], errors='coerce')
+def preprocess_df(df):
+    for col in ['Date_BE', 'Date_depart', 'Date_liv']:
+        if col in df.columns:
+            df[col + '_dt'] = pd.to_datetime(df[col], errors='coerce')
     if 'Souffrance' in df.columns:
         df['Souffrance'] = df['Souffrance'].astype(str).str.replace(r'[\r\n]+', ' ', regex=True).str.strip()
     return df
@@ -61,7 +55,7 @@ def jours_ouvres(start, end):
     return max(jours, 1)
 
 @st.cache_data(ttl=300)
-def calculate_delta_jours_ouvres(df: pd.DataFrame):
+def calculate_delta_jours_ouvres(df):
     df['Delta_jours_ouvres'] = df.apply(
         lambda row: jours_ouvres(row['Date_depart_dt'], row['Date_liv_dt']) if pd.notna(row['Date_depart_dt']) and pd.notna(row['Date_liv_dt']) else np.nan,
         axis=1
@@ -69,22 +63,14 @@ def calculate_delta_jours_ouvres(df: pd.DataFrame):
     return df
 
 @st.cache_data(ttl=300)
-def clean_delta_column(df: pd.DataFrame):
-    if 'Delta' not in df.columns:
-        return pd.Series(dtype='float64')
-    delta_clean = df['Delta'].astype(str).str.strip().replace({'--': None, 'NC': None, '': None, 'nan': None, 'NaN': None, 'None': None})
-    delta_clean = pd.to_numeric(delta_clean, errors='coerce')
-    return delta_clean.dropna()
-
-@st.cache_data(ttl=300)
-def count_souffrance(df: pd.DataFrame):
+def count_souffrance(df):
     if 'Souffrance' not in df.columns:
         return 0, 0
     souffrance_non_null = df['Souffrance'].astype(str).str.strip().replace({'', 'nan', 'NaN', 'None'}, None).dropna()
     return len(souffrance_non_null), len(df)
 
 @st.cache_data(ttl=300)
-def extract_departements(df: pd.DataFrame):
+def extract_departements(df):
     if 'CP' in df.columns:
         df['Departement'] = df['CP'].astype(str).str[:2]
         df = df[df['Departement'].str.match(r'^\d{2}$')]
@@ -92,114 +78,83 @@ def extract_departements(df: pd.DataFrame):
         df['Departement'] = None
     return df
 
-def plot_delta(delta_counts):
+def plot_delta_plotly(delta_counts):
     total = delta_counts.sum()
-    fig, ax = plt.subplots(figsize=(6, 3), facecolor=BACKGROUND_COLOR)
-    bars = ax.bar(delta_counts.index.astype(str), delta_counts.values, color=COLOR_PRIMARY)
-
-    ax.set_xlabel('Délai de livraison (jours)', fontsize=10, color='#333')
-    ax.set_ylabel("Nombre d'expéditions", fontsize=10, color='#333')
-    ax.set_title('Répartition des délais de livraison', fontsize=12, fontweight='bold', color='#222')
-    ax.spines['right'].set_visible(False)
-    ax.spines['top'].set_visible(False)
-    ax.grid(axis='y', linestyle='--', alpha=0.3)
-    ax.set_ylim(0, max(delta_counts.values)*1.25)
-
-    for bar in bars:
-        height = bar.get_height()
-        pct = height / total * 100
-        ax.annotate(f'{int(height)}\n({pct:.0f}%)',
-                    xy=(bar.get_x() + bar.get_width() / 2, height),
-                    xytext=(0, 4),
-                    textcoords="offset points",
-                    ha='center', va='bottom',
-                    fontsize=8,
-                    color=COLOR_PRIMARY,
-                    fontweight='bold')
-    fig.tight_layout()
+    fig = go.Figure()
+    fig.add_trace(go.Bar(
+        x=delta_counts.index.astype(str),
+        y=delta_counts.values,
+        text=[f"{int(v)} ({v/total*100:.0f}%)" for v in delta_counts.values],
+        textposition='outside',
+        marker_color=COLOR_PRIMARY
+    ))
+    fig.update_layout(
+        title="Répartition des délais de livraison",
+        xaxis_title="Délai de livraison (jours ouvrés)",
+        yaxis_title="Nombre d'expéditions",
+        plot_bgcolor="black",
+        paper_bgcolor="black",
+        font=dict(color="white", size=12),
+        margin=dict(t=60),
+        height=400,
+        xaxis=dict(
+            showticklabels=True,
+            tickfont=dict(color="white"),
+            dtick=1  # Affiche toutes les étiquettes
+        ),
+        yaxis=dict(
+            showticklabels=True,
+            tickfont=dict(color="white")
+        ),
+        # Suppression des annotations internes
+        annotations=[]
+    )
     return fig
 
-def plot_souffrance(count, total):
+def plot_souffrance_plotly(count, total):
     labels = ['Avec Souffrance', 'Sans Souffrance']
-    sizes = [count, total - count]
+    values = [count, total - count]
     colors = [COLOR_ALERT, COLOR_PRIMARY]
-
-    fig, ax = plt.subplots(figsize=(6, 3), facecolor=BACKGROUND_COLOR)
-    ax.pie(sizes, labels=labels, autopct='%1.1f%%', startangle=90, colors=colors,
-           textprops={'fontsize': 10, 'color': '#333', 'fontweight': 'bold'})
-    ax.axis('equal')
-    ax.set_title("Proportion des BL avec Souffrance", fontsize=12, fontweight='bold', color='#222')
-    fig.tight_layout()
+    fig = go.Figure(data=[go.Pie(
+        labels=labels, values=values,
+        textinfo='percent+label',
+        marker=dict(colors=colors),
+        hole=0.4
+    )])
+    fig.update_layout(
+        title="Proportion des BL avec Souffrance",
+        # Suppression des annotations internes
+        annotations=[],
+        margin=dict(t=80),
+        height=400
+    )
     return fig
 
-def plot_souffrance_motifs(df):
-    if 'Souffrance' not in df.columns:
-        st.info("La colonne 'Souffrance' est absente.")
-        return None
-
-    motifs = df['Souffrance'].astype(str).str.strip()
-    motifs = motifs.replace({'': None, 'nan': None, 'NaN': None, 'None': None})
-    motifs = motifs.dropna()
-
-    if motifs.empty:
-        st.info("Pas de motifs de souffrance valides dans les données.")
-        return None
-
-    counts = motifs.value_counts()
-
-    fig, ax = plt.subplots(figsize=(8, 4), facecolor=BACKGROUND_COLOR)
-    bars = ax.bar(counts.index, counts.values, color=COLOR_ALERT)
-    ax.set_xlabel("Motifs de souffrance", fontsize=10, color='#333')
-    ax.set_ylabel("Nombre d'occurrences", fontsize=10, color='#333')
-    ax.set_title("Répartition des motifs de souffrance", fontsize=12, fontweight='bold', color='#222')
-    ax.spines['right'].set_visible(False)
-    ax.spines['top'].set_visible(False)
-    ax.grid(axis='y', linestyle='--', alpha=0.3)
-    ax.set_ylim(0, max(counts.values)*1.2)
-    plt.xticks(rotation=45, ha='right')
-
-    for bar in bars:
-        height = bar.get_height()
-        ax.annotate(f'{int(height)}',
-                    xy=(bar.get_x() + bar.get_width() / 2, height),
-                    xytext=(0, 4),
-                    textcoords="offset points",
-                    ha='center', va='bottom',
-                    fontsize=8,
-                    color=COLOR_ALERT,
-                    fontweight='bold')
-    fig.tight_layout()
-    return fig
-
-def plot_livraison_kpi(df):
+def plot_livraison_kpi_plotly(df):
     nb_parties = df['Date_depart_dt'].notna().sum()
     nb_livrees = df['Date_liv_dt'].notna().sum()
     nb_non_livrees = nb_parties - nb_livrees
-
     labels = ['Livrées', 'Non livrées']
-    sizes = [nb_livrees, nb_non_livrees]
-    colors = [COLOR_ALERT, COLOR_PRIMARY]
-
-    def format_autopct(pct):
-        total = sum(sizes)
-        count = int(round(pct / 100 * total))
-        return f'{pct:.1f}%\n({count})'
-
-    fig, ax = plt.subplots(figsize=(6, 3), facecolor=BACKGROUND_COLOR)
-    wedges, texts, autotexts = ax.pie(
-        sizes,
+    values = [nb_livrees, nb_non_livrees]
+    colors = [COLOR_PRIMARY, COLOR_ALERT]
+    fig = go.Figure(data=[go.Pie(
         labels=labels,
-        autopct=format_autopct,
-        startangle=90,
-        colors=colors,
-        textprops={'fontsize': 10, 'color': '#333', 'fontweight': 'bold'}
+        values=values,
+        textinfo='percent+label',
+        marker=dict(colors=colors),
+        hole=0.3
+    )])
+    fig.update_layout(
+        title="Taux de livraison",
+        annotations=[dict(
+            text=f"{nb_livrees}/{nb_parties} livrées",
+            x=0.5, y=1.15, xref='paper', yref='paper',
+            showarrow=False, font=dict(size=14)
+        )],
+        margin=dict(t=80),
+        height=400
     )
-    ax.axis('equal')
-    ax.set_title("Taux de livraison", fontsize=14, fontweight='bold', color='#222')
-    fig.tight_layout()
     return fig
-
-
 
 # --- MAIN ---
 st.title("📦 KPI Transport DIM")
@@ -251,8 +206,8 @@ if not delta_series.empty:
     delta_counts = delta_counts[delta_counts.index <= 30]
     with col1:
         st.subheader("📊 Répartition des délais de livraison (jours ouvrés)")
-        st.markdown(f"{len(delta_series)} BL avec un délai mesuré (jours ouvrés).")
-        st.pyplot(plot_delta(delta_counts))
+        st.markdown(f"**{delta_counts.sum()} expéditions avec un délai mesuré**")
+        st.plotly_chart(plot_delta_plotly(delta_counts), use_container_width=True)
 else:
     with col1:
         st.info("Pas de données avec délai mesuré.")
@@ -262,21 +217,14 @@ souff_count, total_rows = count_souffrance(df_souffrance)
 if total_rows > 0:
     with col2:
         st.subheader("⚠️ Analyse Souffrance")
-        st.markdown(f"{souff_count} sur {total_rows} BL avec souffrance.")
-        st.pyplot(plot_souffrance(souff_count, total_rows))
-        fig_motifs = plot_souffrance_motifs(df_souffrance)
-        if fig_motifs:
-            st.pyplot(fig_motifs)
+        st.markdown(f"**{souff_count} sur {total_rows} BL avec souffrance**")
+        st.plotly_chart(plot_souffrance_plotly(souff_count, total_rows), use_container_width=True)
 else:
     with col2:
         st.info("Pas de données analysables pour la souffrance.")
 
-# --- KPI Livraison ---
 st.subheader("📈 KPI Livraison")
-
-# Affichage des KPI avec nouveau graphique
-fig_kpi = plot_livraison_kpi(df_filtered)
-st.pyplot(fig_kpi)
+st.plotly_chart(plot_livraison_kpi_plotly(df_filtered), use_container_width=True)
 
 csv = df_display.to_csv(index=False).encode('utf-8')
 st.download_button("📅 Export CSV", data=csv, file_name='export_dynamique.csv', mime='text/csv')
