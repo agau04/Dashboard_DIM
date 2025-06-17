@@ -92,31 +92,16 @@ def extract_departements(df: pd.DataFrame):
         df['Departement'] = None
     return df
 
-def plot_delta(delta_counts):
-    total = delta_counts.sum()
-    fig, ax = plt.subplots(figsize=(6, 3), facecolor=BACKGROUND_COLOR)
-    bars = ax.bar(delta_counts.index.astype(str), delta_counts.values, color=COLOR_PRIMARY)
+def plot_pie_delivery(nb_livrees, nb_non_livrees):
+    labels = ['Livrées', 'Non Livrées']
+    sizes = [nb_livrees, nb_non_livrees]
+    colors = [COLOR_PRIMARY, COLOR_ALERT]
 
-    ax.set_xlabel('Délai de livraison (jours)', fontsize=10, color='#333')
-    ax.set_ylabel("Nombre d'expéditions", fontsize=10, color='#333')
-    ax.set_title('Répartition des délais de livraison', fontsize=12, fontweight='bold', color='#222')
-    ax.spines['right'].set_visible(False)
-    ax.spines['top'].set_visible(False)
-    ax.grid(axis='y', linestyle='--', alpha=0.3)
-    ax.set_ylim(0, max(delta_counts.values)*1.25)
-
-    for bar in bars:
-        height = bar.get_height()
-        pct = height / total * 100
-        ax.annotate(f'{int(height)}\n({pct:.0f}%)',
-                    xy=(bar.get_x() + bar.get_width() / 2, height),
-                    xytext=(0, 4),
-                    textcoords="offset points",
-                    ha='center', va='bottom',
-                    fontsize=8,
-                    color=COLOR_PRIMARY,
-                    fontweight='bold')
-    fig.tight_layout()
+    fig, ax = plt.subplots(figsize=(6, 6), facecolor=BACKGROUND_COLOR)
+    wedges, texts, autotexts = ax.pie(sizes, labels=labels, autopct='%1.1f%%', startangle=90,
+                                      colors=colors, textprops={'fontsize': 12, 'fontweight': 'bold', 'color': '#333'})
+    ax.axis('equal')  # Pour garder un cercle parfait
+    ax.set_title("📦 Taux de Livraison", fontsize=16, fontweight='bold', color='#222')
     return fig
 
 def plot_souffrance(count, total):
@@ -171,34 +156,6 @@ def plot_souffrance_motifs(df):
     fig.tight_layout()
     return fig
 
-def plot_livraison_kpi(df):
-    nb_parties = df['Date_depart_dt'].notna().sum()
-    nb_livrees = df['Date_liv_dt'].notna().sum()
-    taux_livrees = (nb_livrees / nb_parties) * 100 if nb_parties > 0 else 0
-
-    fig, ax = plt.subplots(figsize=(8, 3), facecolor=BACKGROUND_COLOR)
-    bars = ax.bar(['Positions parties', 'Positions livrées'], [nb_parties, nb_livrees], color=[COLOR_PRIMARY, COLOR_ALERT])
-    ax.set_ylim(0, max(nb_parties, nb_livrees) * 1.2)
-    ax.set_title("KPI Livraison", fontsize=14, fontweight='bold', color='#222')
-    ax.spines['right'].set_visible(False)
-    ax.spines['top'].set_visible(False)
-    ax.grid(axis='y', linestyle='--', alpha=0.3)
-
-    for bar in bars:
-        height = bar.get_height()
-        ax.annotate(f'{int(height)}',
-                    xy=(bar.get_x() + bar.get_width() / 2, height),
-                    xytext=(0, 4),
-                    textcoords="offset points",
-                    ha='center', va='bottom',
-                    fontsize=10,
-                    fontweight='bold',
-                    color='#222')
-
-    ax.text(0.5, -0.25, f"Taux de livraison : {taux_livrees:.1f} %", ha='center', va='center', fontsize=12, fontweight='bold', color='#222', transform=ax.transAxes)
-    fig.tight_layout()
-    return fig
-
 # --- MAIN ---
 st.title("📦 KPI Transport DIM")
 
@@ -237,23 +194,19 @@ st.dataframe(df_display, use_container_width=True)
 
 col1, col2 = st.columns(2)
 
-if 'Date_liv' in df_filtered:
-    df_delta = df_filtered[df_filtered['Date_liv'].notna()]
-else:
-    df_delta = df_filtered
+# Calcul des KPIs livraison pour camembert
+nb_parties = df_filtered['Date_depart_dt'].notna().sum()
+nb_livrees = df_filtered['Date_liv_dt'].notna().sum()
+nb_non_livrees = nb_parties - nb_livrees
 
-delta_series = df_delta['Delta_jours_ouvres'].dropna().astype(int)
-
-if not delta_series.empty:
-    delta_counts = delta_series.value_counts().sort_index()
-    delta_counts = delta_counts[delta_counts.index <= 30]
-    with col1:
-        st.subheader("📊 Répartition des délais de livraison (jours ouvrés)")
-        st.markdown(f"{len(delta_series)} BL avec un délai mesuré (jours ouvrés).")
-        st.pyplot(plot_delta(delta_counts))
-else:
-    with col1:
-        st.info("Pas de données avec délai mesuré.")
+with col1:
+    if nb_parties > 0:
+        st.subheader("📊 Taux de livraison")
+        st.markdown(f"Nombre d'expéditions : **{nb_parties}**")
+        st.markdown(f"Nombre de livraisons : **{nb_livrees}**")
+        st.pyplot(plot_pie_delivery(nb_livrees, nb_non_livrees))
+    else:
+        st.info("Pas de données d'expéditions disponibles pour le graphique.")
 
 df_souffrance = df_filtered[df_filtered.get('Date_depart', pd.Series([True]*len(df_filtered))).notna()]
 souff_count, total_rows = count_souffrance(df_souffrance)
@@ -272,9 +225,12 @@ else:
 # --- KPI Livraison ---
 st.subheader("📈 KPI Livraison")
 
-# Affichage des KPI avec nouveau graphique
-fig_kpi = plot_livraison_kpi(df_filtered)
-st.pyplot(fig_kpi)
+taux_livrees = (nb_livrees / nb_parties) * 100 if nb_parties > 0 else 0
+
+col_a, col_b, col_c = st.columns(3)
+col_a.metric("📦 Positions parties", nb_parties)
+col_b.metric("📬 Positions livrées", nb_livrees)
+col_c.metric("✅ Taux de livraison", f"{taux_livrees:.1f} %")
 
 csv = df_display.to_csv(index=False).encode('utf-8')
 st.download_button("📅 Export CSV", data=csv, file_name='export_dynamique.csv', mime='text/csv')
