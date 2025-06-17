@@ -244,6 +244,19 @@ else:
     with col2:
         st.info("Pas de données analysables pour la souffrance.")
 
+if total_rows > 0:
+    with col2:
+        st.subheader("⚠️ Analyse Souffrance")
+        st.markdown(f"{souff_count} sur {total_rows} BL avec souffrance.")
+        
+        # Afficher uniquement les motifs sous forme de barres
+        fig_motifs = plot_souffrance_motifs(df_souffrance)
+        if fig_motifs:
+            st.pyplot(fig_motifs)
+else:
+    with col2:
+        st.info("Pas de données analysables pour la souffrance.")
+
 
 
 csv = df_display.to_csv(index=False).encode('utf-8')
