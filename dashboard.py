@@ -51,7 +51,6 @@ def preprocess_df(df: pd.DataFrame):
         df['Souffrance'] = df['Souffrance'].astype(str).str.replace(r'[\r\n]+', ' ', regex=True).str.strip()
     return df
 
-
 def jours_ouvres(start, end):
     if pd.isna(start) or pd.isna(end) or end < start:
         return np.nan
@@ -138,7 +137,6 @@ def plot_souffrance_motifs(df):
         st.info("La colonne 'Souffrance' est absente.")
         return None
 
-    # Nettoyer les valeurs vides / nulles
     motifs = df['Souffrance'].astype(str).str.strip()
     motifs = motifs.replace({'': None, 'nan': None, 'NaN': None, 'None': None})
     motifs = motifs.dropna()
@@ -160,7 +158,6 @@ def plot_souffrance_motifs(df):
     ax.set_ylim(0, max(counts.values)*1.2)
     plt.xticks(rotation=45, ha='right')
 
-    # Affichage des valeurs au-dessus des barres
     for bar in bars:
         height = bar.get_height()
         ax.annotate(f'{int(height)}',
@@ -173,7 +170,6 @@ def plot_souffrance_motifs(df):
                     fontweight='bold')
     fig.tight_layout()
     return fig
-
 
 # --- MAIN ---
 st.title("📦 KPI Transport DIM")
@@ -193,7 +189,7 @@ with st.sidebar:
     if 'Date_BE_dt' in df_filtered:
         min_date = df_filtered['Date_BE_dt'].min().date()
         max_date = df_filtered['Date_BE_dt'].max().date()
-        date_range = st.date_input("📅 Période Date_BE", value=[min_date, max_date], min_value=min_date, max_value=max_date)
+        date_range = st.date_input("🗕️ Période Date_BE", value=[min_date, max_date], min_value=min_date, max_value=max_date)
         if len(date_range) == 2:
             df_filtered = df_filtered[
                 (df_filtered['Date_BE_dt'] >= pd.to_datetime(date_range[0])) &
@@ -218,7 +214,6 @@ if 'Date_liv' in df_filtered:
 else:
     df_delta = df_filtered
 
-# Utiliser la colonne Delta_jours_ouvres au lieu de Delta
 delta_series = df_delta['Delta_jours_ouvres'].dropna().astype(int)
 
 if not delta_series.empty:
@@ -232,7 +227,6 @@ else:
     with col1:
         st.info("Pas de données avec délai mesuré.")
 
-
 df_souffrance = df_filtered[df_filtered.get('Date_depart', pd.Series([True]*len(df_filtered))).notna()]
 souff_count, total_rows = count_souffrance(df_souffrance)
 if total_rows > 0:
@@ -240,16 +234,6 @@ if total_rows > 0:
         st.subheader("⚠️ Analyse Souffrance")
         st.markdown(f"{souff_count} sur {total_rows} BL avec souffrance.")
         st.pyplot(plot_souffrance(souff_count, total_rows))
-else:
-    with col2:
-        st.info("Pas de données analysables pour la souffrance.")
-
-if total_rows > 0:
-    with col2:
-        st.subheader("⚠️ Analyse Souffrance")
-        st.markdown(f"{souff_count} sur {total_rows} BL avec souffrance.")
-        
-        # Afficher uniquement les motifs sous forme de barres
         fig_motifs = plot_souffrance_motifs(df_souffrance)
         if fig_motifs:
             st.pyplot(fig_motifs)
@@ -257,13 +241,23 @@ else:
     with col2:
         st.info("Pas de données analysables pour la souffrance.")
 
+# --- KPI Livraison ---
+st.subheader("📈 KPI Livraison")
 
+nb_parties = df_filtered['Date_depart_dt'].notna().sum()
+nb_livrees = df_filtered['Date_liv_dt'].notna().sum()
+taux_livrees = (nb_livrees / nb_parties) * 100 if nb_parties > 0 else 0
+
+col_a, col_b, col_c = st.columns(3)
+col_a.metric("📦 Positions parties", nb_parties)
+col_b.metric("📬 Positions livrées", nb_livrees)
+col_c.metric("✅ Taux de livraison", f"{taux_livrees:.1f} %")
 
 csv = df_display.to_csv(index=False).encode('utf-8')
-st.download_button("📥 Export CSV", data=csv, file_name='export_dynamique.csv', mime='text/csv')
+st.download_button("📅 Export CSV", data=csv, file_name='export_dynamique.csv', mime='text/csv')
 
 excel_buf = io.BytesIO()
 with pd.ExcelWriter(excel_buf, engine='xlsxwriter') as writer:
     df_display.to_excel(writer, sheet_name='Données', index=False)
 
-st.download_button("📥 Export Excel", data=excel_buf.getvalue(), file_name='export_dynamique.xlsx', mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+st.download_button("📅 Export Excel", data=excel_buf.getvalue(), file_name='export_dynamique.xlsx', mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
