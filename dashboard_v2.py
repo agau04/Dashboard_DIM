@@ -1,236 +1,248 @@
-import streamlit as st
 import pandas as pd
 import numpy as np
 import io
 import requests
-import plotly.graph_objects as go
+from datetime import datetime
 import holidays
 
-st.set_page_config(page_title="Statistiques DIM", layout="wide")
+import dash
+from dash import dcc, html, dash_table, callback_context
+from dash.dependencies import Input, Output, State
+import plotly.graph_objects as go
+import base64
 
-COLOR_PRIMARY = "#619CDA"
-COLOR_ALERT = '#E15759'
-BACKGROUND_COLOR = '#F9F9F9'
+# --- CONSTANTES CHARTRE GRAPHIQUE ---
+BG_COLOR = '#121212'
+TEXT_COLOR = '#E0E0E0'
+ACCENT_COLOR = '#00B0FF'
+ALERT_COLOR = '#FF5252'
+CARD_BG_COLOR = '#1E1E1E'
+BORDER_RADIUS = '8px'
+FONT_FAMILY = "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif"
 
-fr_holidays = holidays.France(years=range(2020, 2031))
+# --- DATA SOURCE ---
+DATA_URL = "https://example.com/ton_fichier.csv"  # Mets ton URL ou chemin local ici
 
-with st.sidebar:
-    if st.button("🔁 Recharger les données"):
-        st.cache_data.clear()
-        st.experimental_rerun()
+# --- Initialisation Dash ---
+app = dash.Dash(__name__)
+server = app.server
 
-@st.cache_data(ttl=600)
-def load_csv_from_url():
-    url = "https://sobotram.teliway.com:443/appli/vsobotram/main/extraction.php?sAction=export&idDo=173&sCle=KPI_DIM&sTypeResultat=csv"
+# --- Fonction pour charger les données ---
+def load_data():
+    # Si local: pd.read_csv("chemin.csv")
+    # Ici pour ex. je fais avec url:
     try:
-        response = requests.get(url, verify=False, timeout=10)
-        response.raise_for_status()
+        r = requests.get(DATA_URL)
+        r.raise_for_status()
+        df = pd.read_csv(io.StringIO(r.text), sep=';')
     except Exception as e:
-        st.error(f"Erreur lors du chargement des données : {e}")
-        return pd.DataFrame()
-    try:
-        content = response.content.decode('utf-8')
-    except UnicodeDecodeError:
-        content = response.content.decode('iso-8859-1')
-    df = pd.read_csv(io.StringIO(content), sep=';', engine='python')
-    df.columns = [col.strip() for col in df.columns]
+        print("Erreur chargement données:", e)
+        df = pd.DataFrame()
     return df
 
-@st.cache_data(ttl=300)
-def preprocess_df(df):
+# --- Préparation et nettoyage ---
+def prepare_data(df):
+    if df.empty:
+        return df
+
+    # Convertir dates
     for col in ['Date_BE', 'Date_depart', 'Date_liv']:
         if col in df.columns:
-            df[col + '_dt'] = pd.to_datetime(df[col], errors='coerce')
-    if 'Souffrance' in df.columns:
-        df['Souffrance'] = df['Souffrance'].astype(str).str.replace(r'[\r\n]+', ' ', regex=True).str.strip()
+            df[col] = pd.to_datetime(df[col], errors='coerce', dayfirst=True)
+
+    # Ajouter colonnes utiles, ex. délai livraison
+    if 'Date_BE' in df.columns and 'Date_liv' in df.columns:
+        df['delai_livraison'] = (df['Date_liv'] - df['Date_BE']).dt.days.clip(lower=0)
+
+    # Ajouter colonne "Souffrance" exemple
+    if 'delai_livraison' in df.columns:
+        df['Souffrance'] = np.where(df['delai_livraison'] > 3, 'Oui', 'Non')
+
+    # Nettoyer doublons, valeurs manquantes etc selon besoin
+
     return df
 
-def jours_ouvres(start, end):
-    if pd.isna(start) or pd.isna(end) or end < start:
-        return np.nan
-    start_np = np.datetime64(start.date())
-    end_np = np.datetime64(end.date())
-    hol_np = np.array([np.datetime64(d) for d in fr_holidays if start.date() < d <= end.date()], dtype='datetime64[D]')
-    jours = np.busday_count(start_np + 1, end_np + 1, holidays=hol_np)
-    return max(jours, 1)
-
-@st.cache_data(ttl=300)
-def calculate_delta_jours_ouvres(df):
-    df['Delta_jours_ouvres'] = df.apply(
-        lambda row: jours_ouvres(row['Date_depart_dt'], row['Date_liv_dt']) if pd.notna(row['Date_depart_dt']) and pd.notna(row['Date_liv_dt']) else np.nan,
-        axis=1
-    )
-    return df
-
-@st.cache_data(ttl=300)
-def count_souffrance(df):
-    if 'Souffrance' not in df.columns:
-        return 0, 0
-    souffrance_non_null = df['Souffrance'].astype(str).str.strip().replace({'', 'nan', 'NaN', 'None'}, None).dropna()
-    return len(souffrance_non_null), len(df)
-
-@st.cache_data(ttl=300)
-def extract_departements(df):
-    if 'CP' in df.columns:
-        df['Departement'] = df['CP'].astype(str).str[:2]
-        df = df[df['Departement'].str.match(r'^\d{2}$')]
-    else:
-        df['Departement'] = None
-    return df
-
-def plot_delta_plotly(delta_counts):
-    total = delta_counts.sum()
-    fig = go.Figure()
-    fig.add_trace(go.Bar(
-        x=delta_counts.index.astype(str),
-        y=delta_counts.values,
-        text=[f"{int(v)} ({v/total*100:.0f}%)" for v in delta_counts.values],
+# --- Fonctions graphiques (exemple) ---
+def make_delai_bar_chart(df):
+    if df.empty or 'delai_livraison' not in df.columns:
+        return go.Figure()
+    counts = df['delai_livraison'].value_counts().sort_index()
+    fig = go.Figure(go.Bar(
+        x=counts.index,
+        y=counts.values,
+        marker_color=ACCENT_COLOR,
+        text=counts.values,
         textposition='outside',
-        marker_color=COLOR_PRIMARY
     ))
     fig.update_layout(
-        title="Répartition des délais de livraison",
-        xaxis_title="Délai de livraison (jours ouvrés)",
-        yaxis_title="Nombre d'expéditions",
-        plot_bgcolor="black",
-        paper_bgcolor="black",
-        font=dict(color="white", size=12),
+        title="Répartition des délais de livraison (jours)",
+        plot_bgcolor=BG_COLOR,
+        paper_bgcolor=BG_COLOR,
+        font=dict(color=TEXT_COLOR, family=FONT_FAMILY),
+        xaxis=dict(title="Délai (jours)", gridcolor='#333'),
+        yaxis=dict(title="Nombre", gridcolor='#333'),
         margin=dict(t=60),
-        height=400,
-        xaxis=dict(
-            showticklabels=True,
-            tickfont=dict(color="white"),
-            dtick=1  # Affiche toutes les étiquettes
-        ),
-        yaxis=dict(
-            showticklabels=True,
-            tickfont=dict(color="white")
-        ),
-        # Suppression des annotations internes
-        annotations=[]
+        height=350,
     )
     return fig
 
-def plot_souffrance_plotly(count, total):
-    labels = ['Avec Souffrance', 'Sans Souffrance']
-    values = [count, total - count]
-    colors = [COLOR_ALERT, COLOR_PRIMARY]
-    fig = go.Figure(data=[go.Pie(
-        labels=labels, values=values,
-        textinfo='percent+label',
-        marker=dict(colors=colors),
-        hole=0.4
-    )])
-    fig.update_layout(
-        title="Proportion des BL avec Souffrance",
-        # Suppression des annotations internes
-        annotations=[],
-        margin=dict(t=80),
-        height=400
-    )
-    return fig
-
-def plot_livraison_kpi_plotly(df):
-    nb_parties = df['Date_depart_dt'].notna().sum()
-    nb_livrees = df['Date_liv_dt'].notna().sum()
-    nb_non_livrees = nb_parties - nb_livrees
-    labels = ['Livrées', 'Non livrées']
-    values = [nb_livrees, nb_non_livrees]
-    colors = [COLOR_PRIMARY, COLOR_ALERT]
-    fig = go.Figure(data=[go.Pie(
+def make_souffrance_pie_chart(df):
+    if df.empty or 'Souffrance' not in df.columns:
+        return go.Figure()
+    counts = df['Souffrance'].value_counts()
+    labels = counts.index.tolist()
+    values = counts.values.tolist()
+    colors = [ALERT_COLOR if lbl=='Oui' else ACCENT_COLOR for lbl in labels]
+    fig = go.Figure(go.Pie(
         labels=labels,
         values=values,
-        textinfo='percent+label',
-        marker=dict(colors=colors),
-        hole=0.3
-    )])
+        hole=0.4,
+        marker_colors=colors,
+        textinfo='label+percent',
+    ))
     fig.update_layout(
-        title="Taux de livraison",
-        annotations=[dict(
-            text=f"{nb_livrees}/{nb_parties} livrées",
-            x=0.5, y=1.15, xref='paper', yref='paper',
-            showarrow=False, font=dict(size=14)
-        )],
-        margin=dict(t=80),
-        height=400
+        title="Proportion des BL avec Souffrance",
+        font=dict(color=TEXT_COLOR, family=FONT_FAMILY),
+        paper_bgcolor=BG_COLOR,
+        margin=dict(t=60),
+        height=350,
     )
     return fig
 
-# --- MAIN ---
-st.title("📦 KPI Transport DIM")
+# --- Layout ---
+app.layout = html.Div(style={'backgroundColor': BG_COLOR, 'color': TEXT_COLOR, 'fontFamily': FONT_FAMILY, 'minHeight': '100vh', 'padding': '15px'}, children=[
+    html.H1("📦 Dashboard Transport DIM", style={'color': ACCENT_COLOR}),
 
-df = load_csv_from_url()
-if df.empty:
-    st.warning("Aucune donnée chargée.")
-    st.stop()
+    html.Div(style={'display': 'flex', 'gap': '20px'}, children=[
+        html.Div(style={'flex': '1', 'backgroundColor': CARD_BG_COLOR, 'padding': '20px', 'borderRadius': BORDER_RADIUS}, children=[
+            html.H3("Filtres", style={'color': ACCENT_COLOR}),
+            dcc.DatePickerRange(
+                id='date-picker-range',
+                start_date_placeholder_text='Date début',
+                end_date_placeholder_text='Date fin',
+                display_format='DD/MM/YYYY',
+                style={'backgroundColor': CARD_BG_COLOR, 'color': TEXT_COLOR, 'borderRadius': BORDER_RADIUS}
+            ),
+            html.Br(), html.Br(),
+            dcc.Dropdown(
+                id='type-transport-dropdown',
+                options=[],
+                placeholder="Sélectionner un type de transport",
+                clearable=True,
+                style={'backgroundColor': CARD_BG_COLOR, 'color': TEXT_COLOR, 'borderRadius': BORDER_RADIUS}
+            ),
+            html.Br(),
+            html.Button("Charger les données", id='load-data-button', style={
+                'backgroundColor': ACCENT_COLOR,
+                'color': BG_COLOR,
+                'border': 'none',
+                'padding': '10px',
+                'borderRadius': BORDER_RADIUS,
+                'cursor': 'pointer',
+                'fontWeight': '600',
+                'width': '100%',
+            }),
+            html.Div(id='load-message', style={'marginTop': '10px', 'color': ALERT_COLOR})
+        ]),
+        html.Div(style={'flex': '3', 'backgroundColor': CARD_BG_COLOR, 'padding': '20px', 'borderRadius': BORDER_RADIUS, 'overflowY': 'auto'}, children=[
+            html.H3("Données brutes", style={'color': ACCENT_COLOR}),
+            dash_table.DataTable(
+                id='data-table',
+                columns=[],
+                data=[],
+                filter_action='native',
+                page_size=10,
+                style_header={
+                    'backgroundColor': ACCENT_COLOR,
+                    'color': BG_COLOR,
+                    'fontWeight': 'bold',
+                    'borderRadius': f'{BORDER_RADIUS} {BORDER_RADIUS} 0 0',
+                },
+                style_cell={
+                    'backgroundColor': CARD_BG_COLOR,
+                    'color': TEXT_COLOR,
+                    'textAlign': 'left',
+                    'fontFamily': FONT_FAMILY,
+                    'minWidth': '100px',
+                    'whiteSpace': 'normal',
+                    'height': 'auto',
+                },
+                style_data_conditional=[
+                    {'if': {'row_index': 'odd'}, 'backgroundColor': '#292929'}
+                ],
+                style_table={'overflowX': 'auto'},
+            ),
+            html.Br(),
+            html.Div(style={'display': 'flex', 'gap': '20px'}, children=[
+                html.Div(style={'flex': '1'}, children=[
+                    dcc.Graph(id='delai-bar-chart')
+                ]),
+                html.Div(style={'flex': '1'}, children=[
+                    dcc.Graph(id='souffrance-pie-chart')
+                ]),
+            ])
+        ])
+    ])
+])
 
-df = preprocess_df(df)
-df = calculate_delta_jours_ouvres(df)
+# --- Callbacks ---
 
-df_filtered = df.copy()
+@app.callback(
+    Output('load-message', 'children'),
+    Output('data-table', 'columns'),
+    Output('data-table', 'data'),
+    Output('type-transport-dropdown', 'options'),
+    Input('load-data-button', 'n_clicks'),
+    State('date-picker-range', 'start_date'),
+    State('date-picker-range', 'end_date'),
+)
+def update_data(n_clicks, start_date, end_date):
+    if not n_clicks:
+        return "", [], [], []
+    df = load_data()
+    if df.empty:
+        return "Erreur chargement données", [], [], []
 
-with st.sidebar:
-    st.header("🔍 Filtres")
-    if 'Date_BE_dt' in df_filtered:
-        min_date = df_filtered['Date_BE_dt'].min().date()
-        max_date = df_filtered['Date_BE_dt'].max().date()
-        date_range = st.date_input("🗕️ Période Date_BE", value=[min_date, max_date], min_value=min_date, max_value=max_date)
-        if len(date_range) == 2:
-            df_filtered = df_filtered[
-                (df_filtered['Date_BE_dt'] >= pd.to_datetime(date_range[0])) &
-                (df_filtered['Date_BE_dt'] <= pd.to_datetime(date_range[1]))
-            ]
-    if 'Type_Transport' in df_filtered:
-        options = df_filtered['Type_Transport'].dropna().unique()
-        selected = st.selectbox("🚛 Type Transport", ["(Tous)"] + sorted(options))
-        if selected != "(Tous)":
-            df_filtered = df_filtered[df_filtered['Type_Transport'] == selected]
+    df = prepare_data(df)
 
-df_filtered = extract_departements(df_filtered)
+    # Filtrer par date_BE si spécifié
+    if start_date:
+        df = df[df['Date_BE'] >= pd.to_datetime(start_date)]
+    if end_date:
+        df = df[df['Date_BE'] <= pd.to_datetime(end_date)]
 
-st.subheader("📋 Données brutes")
-df_display = df_filtered.drop(columns=['Date_BE_dt', 'Date_depart_dt', 'Date_liv_dt'], errors='ignore').reset_index(drop=True)
-st.dataframe(df_display, use_container_width=True)
+    # Colonnes tableau
+    columns=[{"name": c, "id": c} for c in df.columns]
 
-col1, col2 = st.columns(2)
+    # Options type transport
+    options = [{"label": t, "value": t} for t in sorted(df['Type_transport'].dropna().unique())] if 'Type_transport' in df.columns else []
 
-if 'Date_liv' in df_filtered:
-    df_delta = df_filtered[df_filtered['Date_liv'].notna()]
-else:
-    df_delta = df_filtered
+    return "", columns, df.to_dict('records'), options
 
-delta_series = df_delta['Delta_jours_ouvres'].dropna().astype(int)
+@app.callback(
+    Output('data-table', 'data'),
+    Input('type-transport-dropdown', 'value'),
+    State('data-table', 'data'),
+)
+def filter_type_transport(selected_type, rows):
+    if rows is None or len(rows) == 0:
+        return []
+    df = pd.DataFrame(rows)
+    if selected_type:
+        df = df[df['Type_transport'] == selected_type]
+    return df.to_dict('records')
 
-if not delta_series.empty:
-    delta_counts = delta_series.value_counts().sort_index()
-    delta_counts = delta_counts[delta_counts.index <= 30]
-    with col1:
-        st.subheader("📊 Répartition des délais de livraison (jours ouvrés)")
-        st.markdown(f"**{delta_counts.sum()} expéditions avec un délai mesuré**")
-        st.plotly_chart(plot_delta_plotly(delta_counts), use_container_width=True)
-else:
-    with col1:
-        st.info("Pas de données avec délai mesuré.")
+@app.callback(
+    Output('delai-bar-chart', 'figure'),
+    Output('souffrance-pie-chart', 'figure'),
+    Input('data-table', 'data'),
+)
+def update_charts(data):
+    df = pd.DataFrame(data)
+    fig1 = make_delai_bar_chart(df)
+    fig2 = make_souffrance_pie_chart(df)
+    return fig1, fig2
 
-df_souffrance = df_filtered[df_filtered.get('Date_depart', pd.Series([True]*len(df_filtered))).notna()]
-souff_count, total_rows = count_souffrance(df_souffrance)
-if total_rows > 0:
-    with col2:
-        st.subheader("⚠️ Analyse Souffrance")
-        st.markdown(f"**{souff_count} sur {total_rows} BL avec souffrance**")
-        st.plotly_chart(plot_souffrance_plotly(souff_count, total_rows), use_container_width=True)
-else:
-    with col2:
-        st.info("Pas de données analysables pour la souffrance.")
-
-st.subheader("📈 KPI Livraison")
-st.plotly_chart(plot_livraison_kpi_plotly(df_filtered), use_container_width=True)
-
-csv = df_display.to_csv(index=False).encode('utf-8')
-st.download_button("📅 Export CSV", data=csv, file_name='export_dynamique.csv', mime='text/csv')
-
-excel_buf = io.BytesIO()
-with pd.ExcelWriter(excel_buf, engine='xlsxwriter') as writer:
-    df_display.to_excel(writer, sheet_name='Données', index=False)
-
-st.download_button("📅 Export Excel", data=excel_buf.getvalue(), file_name='export_dynamique.xlsx', mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+# --- Run server ---
+if __name__ == '__main__':
+    app.run(debug=True)
