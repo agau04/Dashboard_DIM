@@ -175,23 +175,27 @@ def plot_livraison_kpi(df):
     nb_parties = df['Date_depart_dt'].notna().sum()
     nb_livrees = df['Date_liv_dt'].notna().sum()
     nb_non_livrees = nb_parties - nb_livrees
-    taux_livrees = (nb_livrees / nb_parties) * 100 if nb_parties > 0 else 0
 
     labels = ['Livrées', 'Non livrées']
     sizes = [nb_livrees, nb_non_livrees]
     colors = [COLOR_ALERT, COLOR_PRIMARY]
 
+    def absolute_value(val):
+        total = sum(sizes)
+        count = int(round(val / 100 * total))
+        return f'{count}'
+
     fig, ax = plt.subplots(figsize=(6, 3), facecolor=BACKGROUND_COLOR)
     wedges, texts, autotexts = ax.pie(
         sizes,
         labels=labels,
-        autopct='%1.1f%%',
+        autopct=absolute_value,
         startangle=90,
         colors=colors,
         textprops={'fontsize': 10, 'color': '#333', 'fontweight': 'bold'}
     )
     ax.axis('equal')
-    ax.set_title("Taux de livraison", fontsize=14, fontweight='bold', color='#222')
+    ax.set_title("Taux de livraison (en nombre)", fontsize=14, fontweight='bold', color='#222')
     fig.tight_layout()
     return fig
 
