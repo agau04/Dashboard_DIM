@@ -171,6 +171,34 @@ def plot_souffrance_motifs(df):
     fig.tight_layout()
     return fig
 
+def plot_livraison_kpi(df):
+    nb_parties = df['Date_depart_dt'].notna().sum()
+    nb_livrees = df['Date_liv_dt'].notna().sum()
+    taux_livrees = (nb_livrees / nb_parties) * 100 if nb_parties > 0 else 0
+
+    fig, ax = plt.subplots(figsize=(8, 3), facecolor=BACKGROUND_COLOR)
+    bars = ax.bar(['Positions parties', 'Positions livrées'], [nb_parties, nb_livrees], color=[COLOR_PRIMARY, COLOR_ALERT])
+    ax.set_ylim(0, max(nb_parties, nb_livrees) * 1.2)
+    ax.set_title("KPI Livraison", fontsize=14, fontweight='bold', color='#222')
+    ax.spines['right'].set_visible(False)
+    ax.spines['top'].set_visible(False)
+    ax.grid(axis='y', linestyle='--', alpha=0.3)
+
+    for bar in bars:
+        height = bar.get_height()
+        ax.annotate(f'{int(height)}',
+                    xy=(bar.get_x() + bar.get_width() / 2, height),
+                    xytext=(0, 4),
+                    textcoords="offset points",
+                    ha='center', va='bottom',
+                    fontsize=10,
+                    fontweight='bold',
+                    color='#222')
+
+    ax.text(0.5, -0.25, f"Taux de livraison : {taux_livrees:.1f} %", ha='center', va='center', fontsize=12, fontweight='bold', color='#222', transform=ax.transAxes)
+    fig.tight_layout()
+    return fig
+
 # --- MAIN ---
 st.title("📦 KPI Transport DIM")
 
@@ -244,14 +272,9 @@ else:
 # --- KPI Livraison ---
 st.subheader("📈 KPI Livraison")
 
-nb_parties = df_filtered['Date_depart_dt'].notna().sum()
-nb_livrees = df_filtered['Date_liv_dt'].notna().sum()
-taux_livrees = (nb_livrees / nb_parties) * 100 if nb_parties > 0 else 0
-
-col_a, col_b, col_c = st.columns(3)
-col_a.metric("📦 Positions parties", nb_parties)
-col_b.metric("📬 Positions livrées", nb_livrees)
-col_c.metric("✅ Taux de livraison", f"{taux_livrees:.1f} %")
+# Affichage des KPI avec nouveau graphique
+fig_kpi = plot_livraison_kpi(df_filtered)
+st.pyplot(fig_kpi)
 
 csv = df_display.to_csv(index=False).encode('utf-8')
 st.download_button("📅 Export CSV", data=csv, file_name='export_dynamique.csv', mime='text/csv')
