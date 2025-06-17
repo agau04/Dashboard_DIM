@@ -174,30 +174,27 @@ def plot_souffrance_motifs(df):
 def plot_livraison_kpi(df):
     nb_parties = df['Date_depart_dt'].notna().sum()
     nb_livrees = df['Date_liv_dt'].notna().sum()
+    nb_non_livrees = nb_parties - nb_livrees
     taux_livrees = (nb_livrees / nb_parties) * 100 if nb_parties > 0 else 0
 
-    fig, ax = plt.subplots(figsize=(8, 3), facecolor=BACKGROUND_COLOR)
-    bars = ax.bar(['Positions parties', 'Positions livrées'], [nb_parties, nb_livrees], color=[COLOR_PRIMARY, COLOR_ALERT])
-    ax.set_ylim(0, max(nb_parties, nb_livrees) * 1.2)
-    ax.set_title("KPI Livraison", fontsize=14, fontweight='bold', color='#222')
-    ax.spines['right'].set_visible(False)
-    ax.spines['top'].set_visible(False)
-    ax.grid(axis='y', linestyle='--', alpha=0.3)
+    labels = ['Livrées', 'Non livrées']
+    sizes = [nb_livrees, nb_non_livrees]
+    colors = [COLOR_ALERT, COLOR_PRIMARY]
 
-    for bar in bars:
-        height = bar.get_height()
-        ax.annotate(f'{int(height)}',
-                    xy=(bar.get_x() + bar.get_width() / 2, height),
-                    xytext=(0, 4),
-                    textcoords="offset points",
-                    ha='center', va='bottom',
-                    fontsize=10,
-                    fontweight='bold',
-                    color='#222')
-
-    ax.text(0.5, -0.25, f"Taux de livraison : {taux_livrees:.1f} %", ha='center', va='center', fontsize=12, fontweight='bold', color='#222', transform=ax.transAxes)
+    fig, ax = plt.subplots(figsize=(6, 3), facecolor=BACKGROUND_COLOR)
+    wedges, texts, autotexts = ax.pie(
+        sizes,
+        labels=labels,
+        autopct='%1.1f%%',
+        startangle=90,
+        colors=colors,
+        textprops={'fontsize': 10, 'color': '#333', 'fontweight': 'bold'}
+    )
+    ax.axis('equal')
+    ax.set_title("Taux de livraison", fontsize=14, fontweight='bold', color='#222')
     fig.tight_layout()
     return fig
+
 
 # --- MAIN ---
 st.title("📦 KPI Transport DIM")
