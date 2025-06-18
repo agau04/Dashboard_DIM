@@ -14,10 +14,18 @@ BACKGROUND_COLOR = '#F9F9F9'
 
 fr_holidays = holidays.France(years=range(2020, 2031))
 
+# Correction: Rerun sécurisé
+if "reload_triggered" not in st.session_state:
+    st.session_state.reload_triggered = False
+
+if st.session_state.reload_triggered:
+    st.session_state.reload_triggered = False
+    st.experimental_rerun()
+
 with st.sidebar:
     if st.button("🔁 Recharger les données"):
         st.cache_data.clear()
-        st.experimental_rerun()
+        st.session_state.reload_triggered = True
 
 @st.cache_data(ttl=600)
 def load_csv_from_url():
@@ -100,13 +108,12 @@ def plot_delta_plotly(delta_counts):
         xaxis=dict(
             showticklabels=True,
             tickfont=dict(color="white"),
-            dtick=1  # Affiche toutes les étiquettes
+            dtick=1
         ),
         yaxis=dict(
             showticklabels=True,
             tickfont=dict(color="white")
         ),
-        # Suppression des annotations internes
         annotations=[]
     )
     return fig
@@ -123,7 +130,6 @@ def plot_souffrance_plotly(count, total):
     )])
     fig.update_layout(
         title="Proportion des BL avec Souffrance",
-        # Suppression des annotations internes
         annotations=[],
         margin=dict(t=80),
         height=400
