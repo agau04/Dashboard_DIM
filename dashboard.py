@@ -8,8 +8,8 @@ import holidays
 
 st.set_page_config(page_title="Statistiques DIM", layout="wide")
 
-COLOR_PRIMARY = "#619CDA"
-COLOR_ALERT = '#E15759'
+COLOR_PRIMARY = "#507DAE"
+COLOR_ALERT = "#BD5153"
 BACKGROUND_COLOR = '#F9F9F9'
 
 fr_holidays = holidays.France(years=range(2020, 2031))
