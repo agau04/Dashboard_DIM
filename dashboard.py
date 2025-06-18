@@ -6,23 +6,19 @@ import requests
 import plotly.graph_objects as go
 import holidays
 
-# Configuration
 st.set_page_config(page_title="Statistiques DIM", layout="wide")
 
-# 🎨 Couleurs
 COLOR_PRIMARY = "#507DAE"
 COLOR_ALERT = "#BD5153"
 BACKGROUND_COLOR = '#F9F9F9'
 
-# 🇫🇷 Jours fériés France
 fr_holidays = holidays.France(years=range(2020, 2031))
 
-# ✅ Bouton de rechargement (PLACÉ AVANT TOUT)
-if st.button("🔁 Recharger les données", help="Vider le cache et recharger depuis la source"):
-    st.cache_data.clear()
-    st.experimental_rerun()
+with st.sidebar:
+    if st.button("🔁 Recharger les données"):
+        st.cache_data.clear()
+        st.experimental_rerun()
 
-# 🔁 Chargement CSV
 @st.cache_data(ttl=600)
 def load_csv_from_url():
     url = "https://sobotram.teliway.com:443/appli/vsobotram/main/extraction.php?sAction=export&idDo=173&sCle=KPI_DIM&sTypeResultat=csv"
@@ -40,7 +36,6 @@ def load_csv_from_url():
     df.columns = [col.strip() for col in df.columns]
     return df
 
-# 🧼 Prétraitement
 @st.cache_data(ttl=300)
 def preprocess_df(df):
     for col in ['Date_BE', 'Date_depart', 'Date_liv']:
@@ -50,7 +45,6 @@ def preprocess_df(df):
         df['Souffrance'] = df['Souffrance'].astype(str).str.replace(r'[\r\n]+', ' ', regex=True).str.strip()
     return df
 
-# 📅 Jours ouvrés
 def jours_ouvres(start, end):
     if pd.isna(start) or pd.isna(end) or end < start:
         return np.nan
@@ -60,7 +54,6 @@ def jours_ouvres(start, end):
     jours = np.busday_count(start_np + 1, end_np + 1, holidays=hol_np)
     return max(jours, 1)
 
-# 🔄 Calcul delta
 @st.cache_data(ttl=300)
 def calculate_delta_jours_ouvres(df):
     df['Delta_jours_ouvres'] = df.apply(
@@ -69,7 +62,6 @@ def calculate_delta_jours_ouvres(df):
     )
     return df
 
-# 🧮 Compte souffrance
 @st.cache_data(ttl=300)
 def count_souffrance(df):
     if 'Souffrance' not in df.columns:
@@ -77,7 +69,6 @@ def count_souffrance(df):
     souffrance_non_null = df['Souffrance'].astype(str).str.strip().replace({'', 'nan', 'NaN', 'None'}, None).dropna()
     return len(souffrance_non_null), len(df)
 
-# 📍 Extraction département
 @st.cache_data(ttl=300)
 def extract_departements(df):
     if 'CP' in df.columns:
@@ -87,7 +78,6 @@ def extract_departements(df):
         df['Departement'] = None
     return df
 
-# 📊 Graph délai livraison
 def plot_delta_plotly(delta_counts):
     total = delta_counts.sum()
     fig = go.Figure()
@@ -107,13 +97,20 @@ def plot_delta_plotly(delta_counts):
         font=dict(color="white", size=12),
         margin=dict(t=60),
         height=400,
-        xaxis=dict(showticklabels=True, tickfont=dict(color="white"), dtick=1),
-        yaxis=dict(showticklabels=True, tickfont=dict(color="white")),
+        xaxis=dict(
+            showticklabels=True,
+            tickfont=dict(color="white"),
+            dtick=1  # Affiche toutes les étiquettes
+        ),
+        yaxis=dict(
+            showticklabels=True,
+            tickfont=dict(color="white")
+        ),
+        # Suppression des annotations internes
         annotations=[]
     )
     return fig
 
-# 📊 Graph souffrance
 def plot_souffrance_plotly(count, total):
     labels = ['Avec Souffrance', 'Sans Souffrance']
     values = [count, total - count]
@@ -126,13 +123,13 @@ def plot_souffrance_plotly(count, total):
     )])
     fig.update_layout(
         title="Proportion des BL avec Souffrance",
+        # Suppression des annotations internes
         annotations=[],
         margin=dict(t=80),
         height=400
     )
     return fig
 
-# 📊 Graph livraison
 def plot_livraison_kpi_plotly(df):
     nb_parties = df['Date_depart_dt'].notna().sum()
     nb_livrees = df['Date_liv_dt'].notna().sum()
@@ -159,7 +156,7 @@ def plot_livraison_kpi_plotly(df):
     )
     return fig
 
-# --- 🧠 MAIN ---
+# --- MAIN ---
 st.title("📦 KPI Transport DIM")
 
 df = load_csv_from_url()
@@ -172,7 +169,6 @@ df = calculate_delta_jours_ouvres(df)
 
 df_filtered = df.copy()
 
-# 🧰 Zone de filtres
 with st.sidebar:
     st.header("🔍 Filtres")
     if 'Date_BE_dt' in df_filtered:
@@ -192,16 +188,19 @@ with st.sidebar:
 
 df_filtered = extract_departements(df_filtered)
 
-# 🧾 Données brutes
 st.subheader("📋 Données brutes")
 df_display = df_filtered.drop(columns=['Date_BE_dt', 'Date_depart_dt', 'Date_liv_dt'], errors='ignore').reset_index(drop=True)
 st.dataframe(df_display, use_container_width=True)
 
 col1, col2 = st.columns(2)
 
-# 📊 Graph délai
-df_delta = df_filtered[df_filtered['Date_liv'].notna()] if 'Date_liv' in df_filtered else df_filtered
+if 'Date_liv' in df_filtered:
+    df_delta = df_filtered[df_filtered['Date_liv'].notna()]
+else:
+    df_delta = df_filtered
+
 delta_series = df_delta['Delta_jours_ouvres'].dropna().astype(int)
+
 if not delta_series.empty:
     delta_counts = delta_series.value_counts().sort_index()
     delta_counts = delta_counts[delta_counts.index <= 30]
@@ -213,7 +212,6 @@ else:
     with col1:
         st.info("Pas de données avec délai mesuré.")
 
-# ⚠️ Graph souffrance
 df_souffrance = df_filtered[df_filtered.get('Date_depart', pd.Series([True]*len(df_filtered))).notna()]
 souff_count, total_rows = count_souffrance(df_souffrance)
 if total_rows > 0:
@@ -225,15 +223,12 @@ else:
     with col2:
         st.info("Pas de données analysables pour la souffrance.")
 
-# 📈 KPI livraison
 st.subheader("📈 KPI Livraison")
 st.plotly_chart(plot_livraison_kpi_plotly(df_filtered), use_container_width=True)
 
-# 📤 Export CSV
 csv = df_display.to_csv(index=False).encode('utf-8')
 st.download_button("📅 Export CSV", data=csv, file_name='export_dynamique.csv', mime='text/csv')
 
-# 📤 Export Excel
 excel_buf = io.BytesIO()
 with pd.ExcelWriter(excel_buf, engine='xlsxwriter') as writer:
     df_display.to_excel(writer, sheet_name='Données', index=False)
