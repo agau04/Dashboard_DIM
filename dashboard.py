@@ -156,12 +156,15 @@ def plot_livraison_kpi_plotly(df):
     return fig
 
 def plot_retard_rdv_pie_plotly(df):
+    # On garde seulement les lignes avec Date_liv renseignée
     df_valid = df[df['Date_liv_dt'].notna()]
+
+    # Retards : Date_rdv renseignée ET Date_liv > Date_rdv
     en_retard = (df_valid['Date_rdv_dt'].notna()) & (df_valid['Date_liv_dt'] > df_valid['Date_rdv_dt'])
     nb_retards = en_retard.sum()
     nb_total = len(df_valid)
 
-    labels = ['En retard', 'À l\'heure ou en avance']
+    labels = ['En retard', 'À l\'heure ou sans RDV']
     values = [nb_retards, nb_total - nb_retards]
     colors = [COLOR_ALERT, COLOR_PRIMARY]
 
@@ -173,11 +176,12 @@ def plot_retard_rdv_pie_plotly(df):
         hole=0.4
     )])
     fig.update_layout(
-        title="📅 Livraisons en retard vs à l'heure (sur lignes avec Date_liv renseignée)",
+        title="📅 Livraisons en retard vs à l'heure (par Date_liv et Date_rdv)",
         height=400,
         margin=dict(t=80)
     )
     return fig
+
 
 # --- MAIN ---
 st.title("📦 KPI Transport DIM")
