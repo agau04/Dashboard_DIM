@@ -105,7 +105,7 @@ def plot_delta_plotly(delta_counts):
         margin=dict(t=60),
         height=400,
         xaxis=dict(showticklabels=True, tickfont=dict(color="white"), dtick=1),
-        yaxis=dict(showticklabels=True, tickfont=dict(color="white")),
+        yaxis=dict(showticklabels=True, tickfont=dict(color="white"))
     )
     return fig
 
@@ -119,41 +119,7 @@ def plot_souffrance_plotly(count, total):
         marker=dict(colors=colors),
         hole=0.4
     )])
-    fig.update_layout(
-        title="Proportion des BL avec Souffrance",
-        margin=dict(t=80),
-        height=400
-    )
-    return fig
-
-def plot_souffrance_details_plotly(df):
-    if 'Souffrance' not in df.columns:
-        return None
-    souffrances = df['Souffrance'].astype(str).str.strip()
-    souffrances = souffrances[~souffrances.isin(['', 'nan', 'NaN', 'None'])]
-
-    if souffrances.empty:
-        return None
-
-    counts = souffrances.value_counts()
-    fig = go.Figure()
-    fig.add_trace(go.Bar(
-        x=counts.index,
-        y=counts.values,
-        marker_color=COLOR_ALERT,
-        text=counts.values,
-        textposition='outside'
-    ))
-    fig.update_layout(
-        title="Détail des types de Souffrance",
-        xaxis_title="Souffrance",
-        yaxis_title="Nombre de BL",
-        plot_bgcolor="black",
-        paper_bgcolor="black",
-        font=dict(color="white", size=12),
-        height=450,
-        xaxis=dict(tickangle=-45)
-    )
+    fig.update_layout(title="Proportion des BL avec Souffrance", margin=dict(t=80), height=400)
     return fig
 
 def plot_livraison_kpi_plotly(df):
@@ -172,13 +138,37 @@ def plot_livraison_kpi_plotly(df):
     )])
     fig.update_layout(
         title="Taux de livraison",
-        annotations=[dict(
-            text=f"{nb_livrees}/{nb_parties} livrées",
-            x=0.5, y=1.15, xref='paper', yref='paper',
-            showarrow=False, font=dict(size=14)
-        )],
+        annotations=[dict(text=f"{nb_livrees}/{nb_parties} livrées", x=0.5, y=1.15, xref='paper', yref='paper', showarrow=False, font=dict(size=14))],
         margin=dict(t=80),
         height=400
+    )
+    return fig
+
+def plot_souffrance_details_plotly(df):
+    if 'Souffrance' not in df.columns:
+        return None
+    souffrance_clean = df['Souffrance'].astype(str).str.strip().replace({'', 'nan', 'NaN', 'None'}, np.nan).dropna()
+    if souffrance_clean.empty:
+        return None
+    counts = souffrance_clean.value_counts()
+    fig = go.Figure()
+    fig.add_trace(go.Bar(
+        x=counts.index,
+        y=counts.values,
+        text=[f"{v}" for v in counts.values],
+        textposition='outside',
+        marker_color=COLOR_ALERT
+    ))
+    fig.update_layout(
+        title="Détail des types de souffrance",
+        xaxis_title="Type de souffrance",
+        yaxis_title="Nombre de BL",
+        plot_bgcolor=BACKGROUND_COLOR,
+        paper_bgcolor=BACKGROUND_COLOR,
+        font=dict(color="black", size=12),
+        margin=dict(t=60, b=150),
+        height=500,
+        xaxis_tickangle=45
     )
     return fig
 
@@ -192,6 +182,7 @@ if df.empty:
 
 df = preprocess_df(df)
 df = calculate_delta_jours_ouvres(df)
+
 df_filtered = df.copy()
 
 with st.sidebar:
@@ -243,17 +234,16 @@ if total_rows > 0:
         st.subheader("⚠️ Analyse Souffrance")
         st.markdown(f"**{souff_count} sur {total_rows} BL avec souffrance**")
         st.plotly_chart(plot_souffrance_plotly(souff_count, total_rows), use_container_width=True)
+
+        souffrance_detail_fig = plot_souffrance_details_plotly(df_souffrance)
+        if souffrance_detail_fig:
+            st.subheader("📌 Détail des souffrances")
+            st.plotly_chart(souffrance_detail_fig, use_container_width=True)
+        else:
+            st.info("Aucune souffrance identifiable à afficher.")
 else:
     with col2:
         st.info("Pas de données analysables pour la souffrance.")
-
-# 📌 Nouveau graphique détaillé des souffrances
-souffrance_detail_fig = plot_souffrance_details_plotly(df_souffrance)
-if souffrance_detail_fig:
-    st.subheader("📌 Détail des souffrances")
-    st.plotly_chart(souffrance_detail_fig, use_container_width=True)
-else:
-    st.info("Aucune souffrance identifiable à afficher.")
 
 st.subheader("📈 KPI Livraison")
 st.plotly_chart(plot_livraison_kpi_plotly(df_filtered), use_container_width=True)
