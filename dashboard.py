@@ -186,11 +186,19 @@ with st.sidebar:
                 (df_filtered['Date_BE_dt'] >= pd.to_datetime(date_range[0])) &
                 (df_filtered['Date_BE_dt'] <= pd.to_datetime(date_range[1]))
             ]
+
     if 'Type_Transport' in df_filtered:
         options = df_filtered['Type_Transport'].dropna().unique()
         selected = st.selectbox("🚛 Type Transport", ["(Tous)"] + sorted(options))
         if selected != "(Tous)":
             df_filtered = df_filtered[df_filtered['Type_Transport'] == selected]
+
+    if 'CHRONO' in df_filtered:
+        chrono_options = df_filtered['CHRONO'].dropna().unique()
+        selected_chrono = st.selectbox("⏱️ CHRONO", ["(Tous)"] + sorted(chrono_options))
+        if selected_chrono != "(Tous)":
+            df_filtered = df_filtered[df_filtered['CHRONO'] == selected_chrono]
+
 
 df_filtered = extract_departements(df_filtered)
 
