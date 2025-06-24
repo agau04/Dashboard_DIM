@@ -251,9 +251,16 @@ st.subheader("🗓️ Analyse RDV vs Livraison")
 st.markdown("Basé uniquement sur les lignes avec Date_rdv ET Date_liv renseignées.")
 st.plotly_chart(plot_retard_rdv_pie_plotly(df_filtered), use_container_width=True)
 
-df_rdv_valid = df_filtered[df_filtered['Date_liv_dt'].notna() & df_filtered['Date_rdv_dt'].notna()]
+df_rdv_valid = df_filtered[
+    df_filtered['Date_liv_dt'].notna() & 
+    df_filtered['Date_rdv_dt'].notna() & 
+    df_filtered['Type_Transport'].isin(['AFF', 'IAF'])
+]
+
 nb_retards = (df_rdv_valid['Date_liv_dt'] > df_rdv_valid['Date_rdv_dt']).sum()
-st.markdown(f"**{nb_retards} livraisons en retard sur {len(df_rdv_valid)} analysées**")
+
+st.markdown(f"**{nb_retards} livraisons en retard sur {len(df_rdv_valid)} analysées (Types AFF & IAF)**")
+
 
 # Export
 csv = df_display.to_csv(index=False).encode('utf-8')
