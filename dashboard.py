@@ -155,27 +155,27 @@ def plot_livraison_kpi_plotly(df):
     )
     return fig
 
-def plot_retard_rdv_plotly(df):
-    stats = df['Livraison_en_retard'].value_counts(dropna=True)
-    labels = ['En Retard', 'À l\'heure ou en avance']
-    values = [stats.get(True, 0), stats.get(False, 0)]
+def plot_retard_rdv_pie_plotly(df):
+    df_valid = df[df['Date_liv_dt'].notna()]
+    en_retard = (df_valid['Date_rdv_dt'].notna()) & (df_valid['Date_liv_dt'] > df_valid['Date_rdv_dt'])
+    nb_retards = en_retard.sum()
+    nb_total = len(df_valid)
+
+    labels = ['En retard', 'À l\'heure ou en avance']
+    values = [nb_retards, nb_total - nb_retards]
     colors = [COLOR_ALERT, COLOR_PRIMARY]
-    fig = go.Figure(data=[go.Bar(
-        x=labels,
-        y=values,
-        text=[f"{v} livraisons" for v in values],
-        textposition='outside',
-        marker_color=colors
+
+    fig = go.Figure(data=[go.Pie(
+        labels=labels,
+        values=values,
+        textinfo='label+percent+value',
+        marker=dict(colors=colors),
+        hole=0.4
     )])
     fig.update_layout(
-        title="Comparaison Date de Livraison vs Date de RDV",
-        xaxis_title="Statut de Livraison",
-        yaxis_title="Nombre de livraisons",
-        plot_bgcolor="black",
-        paper_bgcolor="black",
-        font=dict(color="white", size=12),
+        title="📅 Livraisons en retard vs à l'heure (sur lignes avec Date_liv renseignée)",
         height=400,
-        margin=dict(t=60)
+        margin=dict(t=80)
     )
     return fig
 
@@ -191,13 +191,6 @@ df = preprocess_df(df)
 df = calculate_delta_jours_ouvres(df)
 
 df_filtered = df.copy()
-
-# Comparaison Date_liv vs Date_rdv
-df_filtered['Livraison_en_retard'] = np.where(
-    df_filtered['Date_rdv_dt'].notna() & df_filtered['Date_liv_dt'].notna(),
-    df_filtered['Date_liv_dt'] > df_filtered['Date_rdv_dt'],
-    np.nan
-)
 
 with st.sidebar:
     st.header("🔍 Filtres")
@@ -259,14 +252,14 @@ else:
 st.subheader("📈 KPI Livraison")
 st.plotly_chart(plot_livraison_kpi_plotly(df_filtered), use_container_width=True)
 
-# 👉 Section Analyse RDV
-df_rdv = df_filtered[df_filtered['Livraison_en_retard'].notna()]
-nb_retards = df_rdv['Livraison_en_retard'].sum()
-total_rdv = len(df_rdv)
+# 👉 Section Analyse RDV en pie chart
+df_rdv_valid = df_filtered[df_filtered['Date_liv_dt'].notna()]
+nb_retards_rdv = ((df_rdv_valid['Date_rdv_dt'].notna()) & (df_rdv_valid['Date_liv_dt'] > df_rdv_valid['Date_rdv_dt'])).sum()
+total_rdv_valid = len(df_rdv_valid)
 
 st.subheader("📅 Analyse RDV vs Livraison")
-st.markdown(f"**{int(nb_retards)} livraisons en retard sur {total_rdv} avec date RDV renseignée**")
-st.plotly_chart(plot_retard_rdv_plotly(df_rdv), use_container_width=True)
+st.markdown(f"**{nb_retards_rdv} livraisons en retard sur {total_rdv_valid} avec Date_liv renseignée**")
+st.plotly_chart(plot_retard_rdv_pie_plotly(df_filtered), use_container_width=True)
 
 # Export CSV
 csv = df_display.to_csv(index=False).encode('utf-8')
