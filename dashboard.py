@@ -14,6 +14,7 @@ BACKGROUND_COLOR = '#F9F9F9'
 
 fr_holidays = holidays.France(years=range(2020, 2031))
 
+# Correction: Rerun sécurisé
 if "reload_triggered" not in st.session_state:
     st.session_state.reload_triggered = False
 
@@ -30,7 +31,7 @@ with st.sidebar:
 def load_csv_from_url():
     url = "https://sobotram.teliway.com:443/appli/vsobotram/main/extraction.php?sAction=export&idDo=173&sCle=KPI_DIM&sTypeResultat=csv"
     try:
-        response = requests.get(url, verify=False, timeout=10)
+        response = requests.get(url, verify=False, timeout=30)
         response.raise_for_status()
     except Exception as e:
         st.error(f"Erreur lors du chargement des données : {e}")
@@ -154,29 +155,7 @@ def plot_livraison_kpi_plotly(df):
     )
     return fig
 
-def plot_retard_rdv_pie_plotly(df):
-    df_valid = df[df['Date_liv_dt'].notna() & df['Date_rdv_dt'].notna()]
-    en_retard = df_valid['Date_liv_dt'] > df_valid['Date_rdv_dt']
-    nb_retards = en_retard.sum()
-    nb_total = len(df_valid)
-    labels = ['En retard', 'A l\'heure ou en avance']
-    values = [nb_retards, nb_total - nb_retards]
-    colors = [COLOR_ALERT, COLOR_PRIMARY]
-    fig = go.Figure(data=[go.Pie(
-        labels=labels,
-        values=values,
-        textinfo='label+percent+value',
-        marker=dict(colors=colors),
-        hole=0.4
-    )])
-    fig.update_layout(
-        title="🗓️ Livraisons en retard vs à l'heure (Date_liv > Date_rdv)",
-        height=400,
-        margin=dict(t=80)
-    )
-    return fig
-
-# MAIN
+# --- MAIN ---
 st.title("📦 KPI Transport DIM")
 
 df = load_csv_from_url()
@@ -186,6 +165,7 @@ if df.empty:
 
 df = preprocess_df(df)
 df = calculate_delta_jours_ouvres(df)
+
 df_filtered = df.copy()
 
 with st.sidebar:
@@ -199,11 +179,13 @@ with st.sidebar:
                 (df_filtered['Date_BE_dt'] >= pd.to_datetime(date_range[0])) &
                 (df_filtered['Date_BE_dt'] <= pd.to_datetime(date_range[1]))
             ]
+
     if 'Type_Transport' in df_filtered:
         options = df_filtered['Type_Transport'].dropna().unique()
         selected = st.selectbox("🚛 Type Transport", ["(Tous)"] + sorted(options))
         if selected != "(Tous)":
             df_filtered = df_filtered[df_filtered['Type_Transport'] == selected]
+
     if 'CHRONO' in df_filtered:
         chrono_options = df_filtered['CHRONO'].dropna().unique()
         selected_chrono = st.selectbox("⏱️ CHRONO", ["(Tous)"] + sorted(chrono_options))
@@ -246,28 +228,13 @@ else:
 st.subheader("📈 KPI Livraison")
 st.plotly_chart(plot_livraison_kpi_plotly(df_filtered), use_container_width=True)
 
-# Analyse Retard RDV
-st.subheader("🗓️ Analyse RDV vs Livraison")
-st.markdown("Basé uniquement sur les lignes avec Date_rdv ET Date_liv renseignées.")
-st.plotly_chart(plot_retard_rdv_pie_plotly(df_filtered), use_container_width=True)
-
-df_rdv_valid = df_filtered[
-    df_filtered['Date_liv_dt'].notna() & 
-    df_filtered['Date_rdv_dt'].notna() & 
-    df_filtered['Type_Transport'].isin(['AFF', 'IAF'])
-]
-
-nb_retards = (df_rdv_valid['Date_liv_dt'] > df_rdv_valid['Date_rdv_dt']).sum()
-
-st.markdown(f"**{nb_retards} livraisons en retard sur {len(df_rdv_valid)} analysées (Types AFF & IAF)**")
-
-
-# Export
+# Export CSV
 csv = df_display.to_csv(index=False).encode('utf-8')
-st.download_button("🗓️ Export CSV", data=csv, file_name='export_dynamique.csv', mime='text/csv')
+st.download_button("📅 Export CSV", data=csv, file_name='export_dynamique.csv', mime='text/csv')
 
+# Export Excel
 excel_buf = io.BytesIO()
 with pd.ExcelWriter(excel_buf, engine='xlsxwriter') as writer:
     df_display.to_excel(writer, sheet_name='Données', index=False)
 
-st.download_button("🗓️ Export Excel", data=excel_buf.getvalue(), file_name='export_dynamique.xlsx', mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+st.download_button("📅 Export Excel", data=excel_buf.getvalue(), file_name='export_dynamique.xlsx', mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
