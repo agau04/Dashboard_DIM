@@ -46,7 +46,7 @@ def load_csv_from_url():
 
 @st.cache_data(ttl=300)
 def preprocess_df(df):
-    for col in ['Date_BE', 'Date_depart', 'Date_liv']:
+    for col in ['Date_BE', 'Date_depart', 'Date_liv', 'Date_rdv']:
         if col in df.columns:
             df[col + '_dt'] = pd.to_datetime(df[col], errors='coerce')
     if 'Souffrance' in df.columns:
@@ -105,15 +105,8 @@ def plot_delta_plotly(delta_counts):
         font=dict(color="white", size=12),
         margin=dict(t=60),
         height=400,
-        xaxis=dict(
-            showticklabels=True,
-            tickfont=dict(color="white"),
-            dtick=1
-        ),
-        yaxis=dict(
-            showticklabels=True,
-            tickfont=dict(color="white")
-        ),
+        xaxis=dict(showticklabels=True, tickfont=dict(color="white"), dtick=1),
+        yaxis=dict(showticklabels=True, tickfont=dict(color="white")),
         annotations=[]
     )
     return fig
@@ -162,6 +155,30 @@ def plot_livraison_kpi_plotly(df):
     )
     return fig
 
+def plot_retard_rdv_plotly(df):
+    stats = df['Livraison_en_retard'].value_counts(dropna=True)
+    labels = ['En Retard', 'À l\'heure ou en avance']
+    values = [stats.get(True, 0), stats.get(False, 0)]
+    colors = [COLOR_ALERT, COLOR_PRIMARY]
+    fig = go.Figure(data=[go.Bar(
+        x=labels,
+        y=values,
+        text=[f"{v} livraisons" for v in values],
+        textposition='outside',
+        marker_color=colors
+    )])
+    fig.update_layout(
+        title="Comparaison Date de Livraison vs Date de RDV",
+        xaxis_title="Statut de Livraison",
+        yaxis_title="Nombre de livraisons",
+        plot_bgcolor="black",
+        paper_bgcolor="black",
+        font=dict(color="white", size=12),
+        height=400,
+        margin=dict(t=60)
+    )
+    return fig
+
 # --- MAIN ---
 st.title("📦 KPI Transport DIM")
 
@@ -174,6 +191,13 @@ df = preprocess_df(df)
 df = calculate_delta_jours_ouvres(df)
 
 df_filtered = df.copy()
+
+# Comparaison Date_liv vs Date_rdv
+df_filtered['Livraison_en_retard'] = np.where(
+    df_filtered['Date_rdv_dt'].notna() & df_filtered['Date_liv_dt'].notna(),
+    df_filtered['Date_liv_dt'] > df_filtered['Date_rdv_dt'],
+    np.nan
+)
 
 with st.sidebar:
     st.header("🔍 Filtres")
@@ -199,20 +223,15 @@ with st.sidebar:
         if selected_chrono != "(Tous)":
             df_filtered = df_filtered[df_filtered['CHRONO'] == selected_chrono]
 
-
 df_filtered = extract_departements(df_filtered)
 
 st.subheader("📋 Données brutes")
-df_display = df_filtered.drop(columns=['Date_BE_dt', 'Date_depart_dt', 'Date_liv_dt'], errors='ignore').reset_index(drop=True)
+df_display = df_filtered.drop(columns=['Date_BE_dt', 'Date_depart_dt', 'Date_liv_dt', 'Date_rdv_dt'], errors='ignore').reset_index(drop=True)
 st.dataframe(df_display, use_container_width=True)
 
 col1, col2 = st.columns(2)
 
-if 'Date_liv' in df_filtered:
-    df_delta = df_filtered[df_filtered['Date_liv'].notna()]
-else:
-    df_delta = df_filtered
-
+df_delta = df_filtered[df_filtered['Date_liv_dt'].notna()]
 delta_series = df_delta['Delta_jours_ouvres'].dropna().astype(int)
 
 if not delta_series.empty:
@@ -240,9 +259,20 @@ else:
 st.subheader("📈 KPI Livraison")
 st.plotly_chart(plot_livraison_kpi_plotly(df_filtered), use_container_width=True)
 
+# 👉 Section Analyse RDV
+df_rdv = df_filtered[df_filtered['Livraison_en_retard'].notna()]
+nb_retards = df_rdv['Livraison_en_retard'].sum()
+total_rdv = len(df_rdv)
+
+st.subheader("📅 Analyse RDV vs Livraison")
+st.markdown(f"**{int(nb_retards)} livraisons en retard sur {total_rdv} avec date RDV renseignée**")
+st.plotly_chart(plot_retard_rdv_plotly(df_rdv), use_container_width=True)
+
+# Export CSV
 csv = df_display.to_csv(index=False).encode('utf-8')
 st.download_button("📅 Export CSV", data=csv, file_name='export_dynamique.csv', mime='text/csv')
 
+# Export Excel
 excel_buf = io.BytesIO()
 with pd.ExcelWriter(excel_buf, engine='xlsxwriter') as writer:
     df_display.to_excel(writer, sheet_name='Données', index=False)
