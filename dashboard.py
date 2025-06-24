@@ -14,6 +14,7 @@ BACKGROUND_COLOR = '#F9F9F9'
 
 fr_holidays = holidays.France(years=range(2020, 2031))
 
+# Correction: Rerun sécurisé
 if "reload_triggered" not in st.session_state:
     st.session_state.reload_triggered = False
 
@@ -104,8 +105,16 @@ def plot_delta_plotly(delta_counts):
         font=dict(color="white", size=12),
         margin=dict(t=60),
         height=400,
-        xaxis=dict(showticklabels=True, tickfont=dict(color="white"), dtick=1),
-        yaxis=dict(showticklabels=True, tickfont=dict(color="white"))
+        xaxis=dict(
+            showticklabels=True,
+            tickfont=dict(color="white"),
+            dtick=1
+        ),
+        yaxis=dict(
+            showticklabels=True,
+            tickfont=dict(color="white")
+        ),
+        annotations=[]
     )
     return fig
 
@@ -119,7 +128,12 @@ def plot_souffrance_plotly(count, total):
         marker=dict(colors=colors),
         hole=0.4
     )])
-    fig.update_layout(title="Proportion des BL avec Souffrance", margin=dict(t=80), height=400)
+    fig.update_layout(
+        title="Proportion des BL avec Souffrance",
+        annotations=[],
+        margin=dict(t=80),
+        height=400
+    )
     return fig
 
 def plot_livraison_kpi_plotly(df):
@@ -138,37 +152,13 @@ def plot_livraison_kpi_plotly(df):
     )])
     fig.update_layout(
         title="Taux de livraison",
-        annotations=[dict(text=f"{nb_livrees}/{nb_parties} livrées", x=0.5, y=1.15, xref='paper', yref='paper', showarrow=False, font=dict(size=14))],
+        annotations=[dict(
+            text=f"{nb_livrees}/{nb_parties} livrées",
+            x=0.5, y=1.15, xref='paper', yref='paper',
+            showarrow=False, font=dict(size=14)
+        )],
         margin=dict(t=80),
         height=400
-    )
-    return fig
-
-def plot_souffrance_details_plotly(df):
-    if 'Souffrance' not in df.columns:
-        return None
-    souffrance_clean = df['Souffrance'].astype(str).str.strip().replace({'', 'nan', 'NaN', 'None'}, np.nan).dropna()
-    if souffrance_clean.empty:
-        return None
-    counts = souffrance_clean.value_counts()
-    fig = go.Figure()
-    fig.add_trace(go.Bar(
-        x=counts.index,
-        y=counts.values,
-        text=[f"{v}" for v in counts.values],
-        textposition='outside',
-        marker_color=COLOR_ALERT
-    ))
-    fig.update_layout(
-        title="Détail des types de souffrance",
-        xaxis_title="Type de souffrance",
-        yaxis_title="Nombre de BL",
-        plot_bgcolor=BACKGROUND_COLOR,
-        paper_bgcolor=BACKGROUND_COLOR,
-        font=dict(color="black", size=12),
-        margin=dict(t=60, b=150),
-        height=500,
-        xaxis_tickangle=45
     )
     return fig
 
@@ -216,6 +206,7 @@ else:
     df_delta = df_filtered
 
 delta_series = df_delta['Delta_jours_ouvres'].dropna().astype(int)
+
 if not delta_series.empty:
     delta_counts = delta_series.value_counts().sort_index()
     delta_counts = delta_counts[delta_counts.index <= 30]
@@ -234,13 +225,6 @@ if total_rows > 0:
         st.subheader("⚠️ Analyse Souffrance")
         st.markdown(f"**{souff_count} sur {total_rows} BL avec souffrance**")
         st.plotly_chart(plot_souffrance_plotly(souff_count, total_rows), use_container_width=True)
-
-        souffrance_detail_fig = plot_souffrance_details_plotly(df_souffrance)
-        if souffrance_detail_fig:
-            st.subheader("📌 Détail des souffrances")
-            st.plotly_chart(souffrance_detail_fig, use_container_width=True)
-        else:
-            st.info("Aucune souffrance identifiable à afficher.")
 else:
     with col2:
         st.info("Pas de données analysables pour la souffrance.")
