@@ -14,7 +14,6 @@ BACKGROUND_COLOR = '#F9F9F9'
 
 fr_holidays = holidays.France(years=range(2020, 2031))
 
-# Correction: Rerun sécurisé
 if "reload_triggered" not in st.session_state:
     st.session_state.reload_triggered = False
 
@@ -105,16 +104,8 @@ def plot_delta_plotly(delta_counts):
         font=dict(color="white", size=12),
         margin=dict(t=60),
         height=400,
-        xaxis=dict(
-            showticklabels=True,
-            tickfont=dict(color="white"),
-            dtick=1
-        ),
-        yaxis=dict(
-            showticklabels=True,
-            tickfont=dict(color="white")
-        ),
-        annotations=[]
+        xaxis=dict(showticklabels=True, tickfont=dict(color="white"), dtick=1),
+        yaxis=dict(showticklabels=True, tickfont=dict(color="white")),
     )
     return fig
 
@@ -130,9 +121,38 @@ def plot_souffrance_plotly(count, total):
     )])
     fig.update_layout(
         title="Proportion des BL avec Souffrance",
-        annotations=[],
         margin=dict(t=80),
         height=400
+    )
+    return fig
+
+def plot_souffrance_details_plotly(df):
+    if 'Souffrance' not in df.columns:
+        return None
+    souffrances = df['Souffrance'].astype(str).str.strip()
+    souffrances = souffrances[~souffrances.isin(['', 'nan', 'NaN', 'None'])]
+
+    if souffrances.empty:
+        return None
+
+    counts = souffrances.value_counts()
+    fig = go.Figure()
+    fig.add_trace(go.Bar(
+        x=counts.index,
+        y=counts.values,
+        marker_color=COLOR_ALERT,
+        text=counts.values,
+        textposition='outside'
+    ))
+    fig.update_layout(
+        title="Détail des types de Souffrance",
+        xaxis_title="Souffrance",
+        yaxis_title="Nombre de BL",
+        plot_bgcolor="black",
+        paper_bgcolor="black",
+        font=dict(color="white", size=12),
+        height=450,
+        xaxis=dict(tickangle=-45)
     )
     return fig
 
@@ -172,7 +192,6 @@ if df.empty:
 
 df = preprocess_df(df)
 df = calculate_delta_jours_ouvres(df)
-
 df_filtered = df.copy()
 
 with st.sidebar:
@@ -206,7 +225,6 @@ else:
     df_delta = df_filtered
 
 delta_series = df_delta['Delta_jours_ouvres'].dropna().astype(int)
-
 if not delta_series.empty:
     delta_counts = delta_series.value_counts().sort_index()
     delta_counts = delta_counts[delta_counts.index <= 30]
@@ -228,6 +246,14 @@ if total_rows > 0:
 else:
     with col2:
         st.info("Pas de données analysables pour la souffrance.")
+
+# 📌 Nouveau graphique détaillé des souffrances
+souffrance_detail_fig = plot_souffrance_details_plotly(df_souffrance)
+if souffrance_detail_fig:
+    st.subheader("📌 Détail des souffrances")
+    st.plotly_chart(souffrance_detail_fig, use_container_width=True)
+else:
+    st.info("Aucune souffrance identifiable à afficher.")
 
 st.subheader("📈 KPI Livraison")
 st.plotly_chart(plot_livraison_kpi_plotly(df_filtered), use_container_width=True)
