@@ -14,7 +14,6 @@ BACKGROUND_COLOR = '#F9F9F9'
 
 fr_holidays = holidays.France(years=range(2020, 2031))
 
-# Correction: Rerun sécurisé
 if "reload_triggered" not in st.session_state:
     st.session_state.reload_triggered = False
 
@@ -156,18 +155,13 @@ def plot_livraison_kpi_plotly(df):
     return fig
 
 def plot_retard_rdv_pie_plotly(df):
-    # On garde seulement les lignes avec Date_liv renseignée
-    df_valid = df[df['Date_liv_dt'].notna()]
-
-    # Retards : Date_rdv renseignée ET Date_liv > Date_rdv
-    en_retard = (df_valid['Date_rdv_dt'].notna()) & (df_valid['Date_liv_dt'] > df_valid['Date_rdv_dt'])
+    df_valid = df[df['Date_liv_dt'].notna() & df['Date_rdv_dt'].notna()]
+    en_retard = df_valid['Date_liv_dt'] > df_valid['Date_rdv_dt']
     nb_retards = en_retard.sum()
     nb_total = len(df_valid)
-
-    labels = ['En retard', 'À l\'heure ou sans RDV']
+    labels = ['En retard', 'A l\'heure ou en avance']
     values = [nb_retards, nb_total - nb_retards]
     colors = [COLOR_ALERT, COLOR_PRIMARY]
-
     fig = go.Figure(data=[go.Pie(
         labels=labels,
         values=values,
@@ -176,14 +170,13 @@ def plot_retard_rdv_pie_plotly(df):
         hole=0.4
     )])
     fig.update_layout(
-        title="📅 Livraisons en retard vs à l'heure (par Date_liv et Date_rdv)",
+        title="🗓️ Livraisons en retard vs à l'heure (Date_liv > Date_rdv)",
         height=400,
         margin=dict(t=80)
     )
     return fig
 
-
-# --- MAIN ---
+# MAIN
 st.title("📦 KPI Transport DIM")
 
 df = load_csv_from_url()
@@ -193,7 +186,6 @@ if df.empty:
 
 df = preprocess_df(df)
 df = calculate_delta_jours_ouvres(df)
-
 df_filtered = df.copy()
 
 with st.sidebar:
@@ -207,13 +199,11 @@ with st.sidebar:
                 (df_filtered['Date_BE_dt'] >= pd.to_datetime(date_range[0])) &
                 (df_filtered['Date_BE_dt'] <= pd.to_datetime(date_range[1]))
             ]
-
     if 'Type_Transport' in df_filtered:
         options = df_filtered['Type_Transport'].dropna().unique()
         selected = st.selectbox("🚛 Type Transport", ["(Tous)"] + sorted(options))
         if selected != "(Tous)":
             df_filtered = df_filtered[df_filtered['Type_Transport'] == selected]
-
     if 'CHRONO' in df_filtered:
         chrono_options = df_filtered['CHRONO'].dropna().unique()
         selected_chrono = st.selectbox("⏱️ CHRONO", ["(Tous)"] + sorted(chrono_options))
@@ -256,22 +246,21 @@ else:
 st.subheader("📈 KPI Livraison")
 st.plotly_chart(plot_livraison_kpi_plotly(df_filtered), use_container_width=True)
 
-# 👉 Section Analyse RDV en pie chart
-df_rdv_valid = df_filtered[df_filtered['Date_liv_dt'].notna()]
-nb_retards_rdv = ((df_rdv_valid['Date_rdv_dt'].notna()) & (df_rdv_valid['Date_liv_dt'] > df_rdv_valid['Date_rdv_dt'])).sum()
-total_rdv_valid = len(df_rdv_valid)
-
-st.subheader("📅 Analyse RDV vs Livraison")
-st.markdown(f"**{nb_retards_rdv} livraisons en retard sur {total_rdv_valid} avec Date_liv renseignée**")
+# Analyse Retard RDV
+st.subheader("🗓️ Analyse RDV vs Livraison")
+st.markdown("Basé uniquement sur les lignes avec Date_rdv ET Date_liv renseignées.")
 st.plotly_chart(plot_retard_rdv_pie_plotly(df_filtered), use_container_width=True)
 
-# Export CSV
-csv = df_display.to_csv(index=False).encode('utf-8')
-st.download_button("📅 Export CSV", data=csv, file_name='export_dynamique.csv', mime='text/csv')
+df_rdv_valid = df_filtered[df_filtered['Date_liv_dt'].notna() & df_filtered['Date_rdv_dt'].notna()]
+nb_retards = (df_rdv_valid['Date_liv_dt'] > df_rdv_valid['Date_rdv_dt']).sum()
+st.markdown(f"**{nb_retards} livraisons en retard sur {len(df_rdv_valid)} analysées**")
 
-# Export Excel
+# Export
+csv = df_display.to_csv(index=False).encode('utf-8')
+st.download_button("🗓️ Export CSV", data=csv, file_name='export_dynamique.csv', mime='text/csv')
+
 excel_buf = io.BytesIO()
 with pd.ExcelWriter(excel_buf, engine='xlsxwriter') as writer:
     df_display.to_excel(writer, sheet_name='Données', index=False)
 
-st.download_button("📅 Export Excel", data=excel_buf.getvalue(), file_name='export_dynamique.xlsx', mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+st.download_button("🗓️ Export Excel", data=excel_buf.getvalue(), file_name='export_dynamique.xlsx', mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
