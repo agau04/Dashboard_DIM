@@ -77,14 +77,6 @@ def count_souffrance(df):
     souffrance_non_null = df['Souffrance'].astype(str).str.strip().replace({'', 'nan', 'NaN', 'None'}, None).dropna()
     return len(souffrance_non_null), len(df)
 
-@st.cache_data(ttl=300)
-def extract_departements(df):
-    if 'CP' in df.columns:
-        df['Departement'] = df['CP'].astype(str).str[:2]
-        df = df[df['Departement'].str.match(r'^\d{2}$')]
-    else:
-        df['Departement'] = None
-    return df
 
 def plot_delta_plotly(delta_counts):
     total = delta_counts.sum()
@@ -192,7 +184,6 @@ with st.sidebar:
         if selected_chrono != "(Tous)":
             df_filtered = df_filtered[df_filtered['CHRONO'] == selected_chrono]
 
-df_filtered = extract_departements(df_filtered)
 
 st.subheader("📋 Données brutes")
 df_display = df_filtered.drop(columns=['Date_BE_dt', 'Date_depart_dt', 'Date_liv_dt', 'Date_rdv_dt'], errors='ignore').reset_index(drop=True)
