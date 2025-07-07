@@ -147,6 +147,26 @@ def plot_livraison_kpi_plotly(df):
     )
     return fig
 
+def plot_rdv_respect_plotly(df):
+    labels = ['RDV Respecté', 'RDV Non Respecté']
+    counts = df['RDV_respect'].value_counts()
+    values = [counts.get(True, 0), counts.get(False, 0)]
+    colors = [COLOR_PRIMARY, COLOR_ALERT]
+
+    fig = go.Figure(data=[go.Pie(
+        labels=labels,
+        values=values,
+        textinfo='percent+label',
+        marker=dict(colors=colors),
+        hole=0.4
+    )])
+    fig.update_layout(
+        title="Taux de respect des RDV pour produits IAF/AFF",
+        margin=dict(t=80),
+        height=400
+    )
+    return fig
+
 # --- MAIN ---
 st.title("📦 KPI Transport DIM")
 
@@ -215,6 +235,26 @@ if total_rows > 0:
 else:
     with col2:
         st.info("Pas de données analysables pour la souffrance.")
+
+# --- NOUVEAU : Taux de respect des RDV pour produits IAF/AFF ---
+if 'Produit' in df_filtered.columns:
+    df_rdv = df_filtered[df_filtered['Produit'].isin(['IAF', 'AFF'])].copy()
+
+    # On ne garde que les lignes avec date livraison et date rdv non nulles
+    df_rdv = df_rdv[df_rdv['Date_liv_dt'].notna() & df_rdv['Date_rdv_dt'].notna()]
+
+    # Création de la colonne RDV_respect (bool)
+    df_rdv['RDV_respect'] = df_rdv['Date_liv_dt'] <= df_rdv['Date_rdv_dt']
+
+    st.subheader("⏰ Taux de respect des RDV pour produits IAF/AFF")
+    if not df_rdv.empty:
+        st.plotly_chart(plot_rdv_respect_plotly(df_rdv), use_container_width=True)
+        respect_rate = df_rdv['RDV_respect'].mean() * 100
+        st.markdown(f"**Taux de respect : {respect_rate:.1f}% ({df_rdv['RDV_respect'].sum()} sur {len(df_rdv)})**")
+    else:
+        st.info("Aucune donnée avec Date Livraison et Date RDV pour produits IAF/AFF.")
+else:
+    st.info("La colonne 'Produit' n'existe pas dans les données.")
 
 st.subheader("📈 KPI Livraison")
 st.plotly_chart(plot_livraison_kpi_plotly(df_filtered), use_container_width=True)
