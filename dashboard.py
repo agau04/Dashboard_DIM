@@ -238,7 +238,7 @@ else:
 
 # --- NOUVEAU : Taux de respect des RDV pour produits IAF/AFF ---
 if 'Produit' in df_filtered.columns:
-    df_rdv = df_filtered[df_filtered['Produit'].isin(['IAF', 'AFF'])].copy()
+    df_rdv = df_filtered[df_filtered['Type_transport'].isin(['IAF', 'AFF'])].copy()
 
     # On ne garde que les lignes avec date livraison et date rdv non nulles
     df_rdv = df_rdv[df_rdv['Date_liv_dt'].notna() & df_rdv['Date_rdv_dt'].notna()]
