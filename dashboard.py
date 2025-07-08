@@ -237,7 +237,7 @@ else:
         st.info("Pas de données analysables pour la souffrance.")
 
 # --- NOUVEAU : Taux de respect des RDV pour produits IAF/AFF ---
-if 'Produit' in df_filtered.columns:
+if 'Type_transport' in df_filtered.columns:
     df_rdv = df_filtered[df_filtered['Type_transport'].isin(['IAF', 'AFF'])].copy()
 
     # On ne garde que les lignes avec date livraison et date rdv non nulles
