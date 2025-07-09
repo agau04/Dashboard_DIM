@@ -213,7 +213,6 @@ with st.sidebar:
         if selected_chrono != "(Tous)":
             df_filtered = df_filtered[df_filtered['CHRONO'] == selected_chrono]
 
-
 st.subheader("📋 Données brutes")
 df_display = df_filtered.drop(columns=['Date_BE_dt', 'Date_depart_dt', 'Date_liv_dt', 'Date_rdv_dt'], errors='ignore').reset_index(drop=True)
 st.dataframe(df_display, use_container_width=True)
@@ -234,7 +233,8 @@ else:
     with col1:
         st.info("Pas de données avec délai mesuré.")
 
-df_souffrance = df_filtered[df_filtered.get('Date_depart', pd.Series([True]*len(df_filtered))).notna()]
+# Filtrer pour analyse souffrance avec Date_liv non null
+df_souffrance = df_filtered[df_filtered['Date_liv_dt'].notna()]
 souff_count, total_rows = count_souffrance(df_souffrance)
 if total_rows > 0:
     with col2:
