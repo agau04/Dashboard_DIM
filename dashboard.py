@@ -10,7 +10,7 @@ st.set_page_config(page_title="Statistiques DIM", layout="wide")
 
 COLOR_PRIMARY = "#507DAE"
 COLOR_ALERT = "#BD5153"
-BACKGROUND_COLOR = '#F9F9F9'
+BACKGROUND_COLOR = '#FFFFFF'  # Blanc partout
 
 fr_holidays = holidays.France(years=range(2020, 2031))
 
@@ -92,13 +92,13 @@ def plot_delta_plotly(delta_counts):
         title="Répartition des délais de livraison",
         xaxis_title="Délai de livraison (jours ouvrés)",
         yaxis_title="Nombre d'expéditions",
-        plot_bgcolor="black",
-        paper_bgcolor="#FFFFFF",
-        font=dict(color="white", size=12),
+        plot_bgcolor="white",
+        paper_bgcolor="white",
+        font=dict(color="black", size=12),
         margin=dict(t=60),
         height=400,
-        xaxis=dict(showticklabels=True, tickfont=dict(color="white"), dtick=1),
-        yaxis=dict(showticklabels=True, tickfont=dict(color="white")),
+        xaxis=dict(showticklabels=True, tickfont=dict(color="black"), dtick=1),
+        yaxis=dict(showticklabels=True, tickfont=dict(color="black")),
         annotations=[]
     )
     return fig
@@ -117,7 +117,10 @@ def plot_souffrance_plotly(count, total):
         title="Proportion des BL avec Souffrance",
         annotations=[],
         margin=dict(t=80),
-        height=400
+        height=400,
+        paper_bgcolor='white',
+        plot_bgcolor='white',
+        font=dict(color="black")
     )
     return fig
 
@@ -140,10 +143,13 @@ def plot_livraison_kpi_plotly(df):
         annotations=[dict(
             text=f"{nb_livrees}/{nb_parties} livrées",
             x=0.5, y=1.15, xref='paper', yref='paper',
-            showarrow=False, font=dict(size=14)
+            showarrow=False, font=dict(size=14, color='black')
         )],
         margin=dict(t=80),
-        height=400
+        height=400,
+        paper_bgcolor='white',
+        plot_bgcolor='white',
+        font=dict(color="black")
     )
     return fig
 
@@ -163,7 +169,10 @@ def plot_rdv_respect_plotly(df):
     fig.update_layout(
         title="Taux de respect des RDV pour produits IAF/AFF",
         margin=dict(t=80),
-        height=400
+        height=400,
+        paper_bgcolor='white',
+        plot_bgcolor='white',
+        font=dict(color="black")
     )
     return fig
 
