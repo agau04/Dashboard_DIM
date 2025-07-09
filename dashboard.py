@@ -234,21 +234,8 @@ else:
     with col1:
         st.info("Pas de données avec délai mesuré.")
 
-df_souffrance = df_filtered[
-    df_filtered.get('Date_depart', pd.Series([True]*len(df_filtered))).notna() &
-    df_filtered['Date_liv_dt'].notna()
-]
-
+df_souffrance = df_filtered[df_filtered.get('Date_depart', pd.Series([True]*len(df_filtered))).notna()]
 souff_count, total_rows = count_souffrance(df_souffrance)
-if total_rows > 0:
-    with col2:
-        st.subheader("⚠️ Analyse Souffrance")
-        st.markdown(f"**{souff_count} sur {total_rows} BL avec souffrance**")
-        st.plotly_chart(plot_souffrance_plotly(souff_count, total_rows), use_container_width=True)
-else:
-    with col2:
-        st.info("Pas de données analysables pour la souffrance.")
-
 if total_rows > 0:
     with col2:
         st.subheader("⚠️ Analyse Souffrance")
