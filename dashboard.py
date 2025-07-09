@@ -93,7 +93,7 @@ def plot_delta_plotly(delta_counts):
         xaxis_title="Délai de livraison (jours ouvrés)",
         yaxis_title="Nombre d'expéditions",
         plot_bgcolor="black",
-        paper_bgcolor="black",
+        paper_bgcolor="#FFFFFF",
         font=dict(color="white", size=12),
         margin=dict(t=60),
         height=400,
