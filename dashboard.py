@@ -190,8 +190,8 @@ df = calculate_delta_jours_ouvres(df)
 df_filtered = df.copy()
 
 with st.sidebar:
-    st.header("🔍 Filtres")
     st.markdown("<br><br><br><br><br><br><br><br>", unsafe_allow_html=True)
+    st.header("🔍 Filtres")
     if 'Date_BE_dt' in df_filtered:
         min_date = df_filtered['Date_BE_dt'].min().date()
         max_date = df_filtered['Date_BE_dt'].max().date()
