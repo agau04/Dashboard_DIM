@@ -8,6 +8,16 @@ import holidays
 
 st.set_page_config(page_title="Statistiques DIM", layout="wide")
 
+# --- Hack CSS pour forcer le calendrier vers le bas dans la sidebar ---
+st.markdown("""
+    <style>
+        /* Ajoute un espace suffisant dans la sidebar pour éviter que le calendrier soit tronqué */
+        section[data-testid="stSidebar"] > div:nth-child(1) {
+            margin-bottom: 150px;
+        }
+    </style>
+""", unsafe_allow_html=True)
+
 COLOR_PRIMARY = "#507DAE"
 COLOR_ALERT = "#BD5153"
 BACKGROUND_COLOR = '#FFFFFF'  # Blanc partout
@@ -190,7 +200,6 @@ df = calculate_delta_jours_ouvres(df)
 df_filtered = df.copy()
 
 with st.sidebar:
-    st.markdown("<br><br><br><br><br>", unsafe_allow_html=True)
     st.header("🔍 Filtres")
     if 'Date_BE_dt' in df_filtered:
         min_date = df_filtered['Date_BE_dt'].min().date()
