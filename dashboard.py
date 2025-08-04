@@ -7,29 +7,6 @@ import plotly.graph_objects as go
 import holidays
 from streamlit_datetime_range_picker import datetime_range_picker
 
-st.markdown("""
-<style>
-/* Cache le footer "Choose a date range" dans le picker natif Streamlit */
-[data-baseweb="datepicker"] > div > div:nth-child(3) {
-    display: none !important;
-}
-
-/* Tente aussi de réduire la largeur et la hauteur du popup */
-[data-baseweb="datepicker"] {
-    max-width: 320px !important;
-    max-height: 300px !important;
-    overflow: hidden !important;
-}
-
-/* Masque les éléments de sélection rapide (quick selects) */
-div[aria-label="Quick select"], div[aria-label="Quick Select"] {
-    display: none !important;
-}
-</style>
-""", unsafe_allow_html=True)
-
-
-
 st.set_page_config(page_title="Statistiques DIM", layout="wide")
 
 COLOR_PRIMARY = "#507DAE"
