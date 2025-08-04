@@ -5,7 +5,7 @@ import io
 import requests
 import plotly.graph_objects as go
 import holidays
-from streamlit_datetime_range_picker import datetime_range_picker
+from streamlit_datetime_range_picker import date_range_picker, PickerType
 
 st.set_page_config(page_title="Statistiques DIM", layout="wide")
 
@@ -193,6 +193,24 @@ df_filtered = df.copy()
 with st.sidebar:
     st.header("🔍 Filtres")
 
+    if 'Date_BE_dt' in df_filtered:
+        min_d = df_filtered['Date_BE_dt'].min().date()
+        max_d = df_filtered['Date_BE_dt'].max().date()
+
+        start_date, end_date = date_range_picker(
+            picker_type=PickerType.date,
+            key="date_range_be",
+            min_date=min_d,
+            max_date=max_d,
+            placement="bottom",
+        )
+
+        if start_date and end_date:
+            df_filtered = df_filtered[
+                (df_filtered['Date_BE_dt'] >= pd.to_datetime(start_date)) &
+                (df_filtered['Date_BE_dt'] <= pd.to_datetime(end_date))
+            ]
+
     if 'Type_Transport' in df_filtered:
         options = df_filtered['Type_Transport'].dropna().unique()
         selected = st.selectbox("🚛 Type Transport", ["(Tous)"] + sorted(options))
@@ -204,16 +222,6 @@ with st.sidebar:
         selected_chrono = st.selectbox("⏱️ CHRONO", ["(Tous)"] + sorted(chrono_options))
         if selected_chrono != "(Tous)":
             df_filtered = df_filtered[df_filtered['CHRONO'] == selected_chrono]
-    
-    if 'Date_BE_dt' in df_filtered:
-        min_date = df_filtered['Date_BE_dt'].min().date()
-        max_date = df_filtered['Date_BE_dt'].max().date()
-        date_range = st.date_input("🗕️ Période Date_BE", value=[min_date, max_date], min_value=min_date, max_value=max_date)
-        if len(date_range) == 2:
-            df_filtered = df_filtered[
-                (df_filtered['Date_BE_dt'] >= pd.to_datetime(date_range[0])) &
-                (df_filtered['Date_BE_dt'] <= pd.to_datetime(date_range[1]))
-            ]
 
 st.subheader("📋 Données brutes")
 df_display = df_filtered.drop(columns=['Date_BE_dt', 'Date_depart_dt', 'Date_liv_dt', 'Date_rdv_dt'], errors='ignore').reset_index(drop=True)
