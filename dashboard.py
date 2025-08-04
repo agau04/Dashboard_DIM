@@ -9,13 +9,14 @@ from streamlit_datetime_range_picker import datetime_range_picker
 
 st.markdown("""
 <style>
-/* Réduit la marge/padding au-dessus du titre principal */
-h1 {
-    margin-top: 0.3rem !important;
-    padding-top: 0 !important;
+/* Réduit le padding top du conteneur principal */
+div[data-testid="stMainBlockContainer"] {
+    padding-top: 0.3rem !important;  /* ou 0 si tu veux vraiment rien */
+    margin-top: 0 !important;
 }
 </style>
 """, unsafe_allow_html=True)
+
 
 
 st.set_page_config(page_title="Statistiques DIM", layout="wide")
