@@ -194,24 +194,24 @@ with st.sidebar:
     st.header("🔍 Filtres")
 
     if 'Date_BE_dt' in df_filtered:
-        min_date = df_filtered['Date_BE_dt'].min().date()
-        max_date = df_filtered['Date_BE_dt'].max().date()
+        # Borne minimum/maximum
+        min_d = df_filtered['Date_BE_dt'].min().date()
+        max_d = df_filtered['Date_BE_dt'].max().date()
 
-        st.markdown("📅 Période Date_BE")
-        start_date, end_date = st.slider(
-            "",
-            min_value=min_date,
-            max_value=max_date,
-            value=(min_date, max_date),
-            format="DD/MM/YYYY",
-            key="period_slider"
+        # Appel du date range picker custom
+        dr = datetime_range_picker(
+            start=min_d,
+            end=max_d,
+            unit='days',
+            key='be_range'
         )
-
-        df_filtered = df_filtered[
-            (df_filtered['Date_BE_dt'] >= pd.to_datetime(start_date)) &
-            (df_filtered['Date_BE_dt'] <= pd.to_datetime(end_date))
-        ]
-
+        if dr:
+            # dr est un tuple de strings ou datetimes
+            start, end = dr
+            df_filtered = df_filtered[
+                (df_filtered['Date_BE_dt'] >= pd.to_datetime(start)) &
+                (df_filtered['Date_BE_dt'] <= pd.to_datetime(end))
+            ]
 
     if 'Type_Transport' in df_filtered:
         options = df_filtered['Type_Transport'].dropna().unique()
