@@ -11,7 +11,7 @@ st.markdown("""
 <style>
 /* Réduit le padding top du conteneur principal */
 div[data-testid="stMainBlockContainer"] {
-    padding-top: 0.8rem !important;  /* ou 0 si tu veux vraiment rien */
+    padding-top: 0.9rem !important;  /* ou 0 si tu veux vraiment rien */
     margin-top: 0 !important;
 }
 </style>
