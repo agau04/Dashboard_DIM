@@ -188,20 +188,29 @@ if df.empty:
 df = preprocess_df(df)
 df = calculate_delta_jours_ouvres(df)
 
+# Sélecteur de date placé sous le titre principal, en mode calendrier avec plage
+min_date = df['Date_BE_dt'].min().date()
+max_date = df['Date_BE_dt'].max().date()
+
+date_range = st.date_input(
+    "📅 Sélectionnez la période Date_BE",
+    value=[min_date, max_date],
+    min_value=min_date,
+    max_value=max_date
+)
+
 df_filtered = df.copy()
+
+# Filtrage par date avec la sélection
+if len(date_range) == 2:
+    start_date, end_date = date_range
+    df_filtered = df_filtered[
+        (df_filtered['Date_BE_dt'] >= pd.to_datetime(start_date)) &
+        (df_filtered['Date_BE_dt'] <= pd.to_datetime(end_date))
+    ]
 
 with st.sidebar:
     st.header("🔍 Filtres")
-    if 'Date_BE_dt' in df_filtered:
-        min_date = df_filtered['Date_BE_dt'].min().date()
-        max_date = df_filtered['Date_BE_dt'].max().date()
-        date_range = st.date_input("Période Date_BE", value=[min_date, max_date], min_value=min_date, max_value=max_date)
-        if len(date_range) == 2:
-            df_filtered = df_filtered[
-                (df_filtered['Date_BE_dt'] >= pd.to_datetime(date_range[0])) &
-                (df_filtered['Date_BE_dt'] <= pd.to_datetime(date_range[1]))
-            ]
-
     if 'Type_Transport' in df_filtered:
         options = df_filtered['Type_Transport'].dropna().unique()
         selected = st.selectbox("🚛 Type Transport", ["(Tous)"] + sorted(options))
@@ -213,6 +222,7 @@ with st.sidebar:
         selected_chrono = st.selectbox("⏱️ CHRONO", ["(Tous)"] + sorted(chrono_options))
         if selected_chrono != "(Tous)":
             df_filtered = df_filtered[df_filtered['CHRONO'] == selected_chrono]
+
 
 st.subheader("📋 Données brutes")
 df_display = df_filtered.drop(columns=['Date_BE_dt', 'Date_depart_dt', 'Date_liv_dt', 'Date_rdv_dt'], errors='ignore').reset_index(drop=True)
