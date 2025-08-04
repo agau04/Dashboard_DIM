@@ -7,6 +7,18 @@ import plotly.graph_objects as go
 import holidays
 from streamlit_datetime_range_picker import datetime_range_picker
 
+# ------ CSS pour cacher la barre "quick selector" du calendrier ------
+st.markdown(
+    """
+    <style>
+    div[role="dialog"] > div > div > div:nth-child(2) {
+        display: none !important;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
 st.set_page_config(page_title="Statistiques DIM", layout="wide")
 
 COLOR_PRIMARY = "#507DAE"
