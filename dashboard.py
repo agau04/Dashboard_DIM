@@ -199,7 +199,13 @@ with st.sidebar:
 
         st.subheader("Période Date_BE")
 
-        date_range = datetime_range_picker(key="date_range_picker")
+        date_range = st.date_input(
+            "Période Date_BE",
+            value=(min_date, max_date),
+            min_value=min_date,
+            max_value=max_date,
+            key="date_range_picker"
+        )
 
         if date_range is not None and len(date_range) == 2:
             start_date, end_date = date_range
