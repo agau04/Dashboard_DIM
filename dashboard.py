@@ -192,12 +192,17 @@ df = calculate_delta_jours_ouvres(df)
 min_date = df['Date_BE_dt'].min().date()
 max_date = df['Date_BE_dt'].max().date()
 
-date_range = st.date_input(
-    "📅 Sélectionnez la période Date_BE",
-    value=[min_date, max_date],
-    min_value=min_date,
-    max_value=max_date
-)
+col_date, col_dummy = st.columns([1, 3])  # 1/4 de la largeur pour la date
+
+with col_date:
+    date_range = st.date_input(
+        "Période Date_BE",
+        value=[min_date, max_date],
+        min_value=min_date,
+        max_value=max_date,
+        key="date_range_picker"
+    )
+
 
 df_filtered = df.copy()
 
