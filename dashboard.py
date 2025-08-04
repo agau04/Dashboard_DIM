@@ -192,35 +192,15 @@ df_filtered = df.copy()
 
 with st.sidebar:
     st.header("🔍 Filtres")
-
     if 'Date_BE_dt' in df_filtered:
         min_date = df_filtered['Date_BE_dt'].min().date()
         max_date = df_filtered['Date_BE_dt'].max().date()
-
-        st.subheader("Période Date_BE")
-
-        date_range = st.date_input(
-            "Période Date_BE",
-            value=(min_date, max_date),
-            min_value=min_date,
-            max_value=max_date,
-            key="date_range_picker"
-        )
-
-        if date_range is not None and len(date_range) == 2:
-            start_date, end_date = date_range
-
-            # Assure-toi que start_date et end_date sont bien de type date
-            if start_date < min_date:
-                start_date = min_date
-            if end_date > max_date:
-                end_date = max_date
-
+        date_range = st.date_input("Période Date_BE", value=[min_date, max_date], min_value=min_date, max_value=max_date)
+        if len(date_range) == 2:
             df_filtered = df_filtered[
-                (df_filtered['Date_BE_dt'].dt.date >= start_date) &
-                (df_filtered['Date_BE_dt'].dt.date <= end_date)
+                (df_filtered['Date_BE_dt'] >= pd.to_datetime(date_range[0])) &
+                (df_filtered['Date_BE_dt'] <= pd.to_datetime(date_range[1]))
             ]
-
 
     if 'Type_Transport' in df_filtered:
         options = df_filtered['Type_Transport'].dropna().unique()
