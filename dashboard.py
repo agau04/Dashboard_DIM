@@ -5,7 +5,7 @@ import io
 import requests
 import plotly.graph_objects as go
 import holidays
-from streamlit_datetime_range_picker import date_range_picker, PickerType
+from streamlit_datetime_range_picker import datetime_range_picker
 
 st.set_page_config(page_title="Statistiques DIM", layout="wide")
 
@@ -192,23 +192,14 @@ df_filtered = df.copy()
 
 with st.sidebar:
     st.header("🔍 Filtres")
-
     if 'Date_BE_dt' in df_filtered:
-        min_d = df_filtered['Date_BE_dt'].min().date()
-        max_d = df_filtered['Date_BE_dt'].max().date()
-
-        start_date, end_date = date_range_picker(
-            picker_type=PickerType.date,
-            key="date_range_be",
-            min_date=min_d,
-            max_date=max_d,
-            placement="bottom",
-        )
-
-        if start_date and end_date:
+        min_date = df_filtered['Date_BE_dt'].min().date()
+        max_date = df_filtered['Date_BE_dt'].max().date()
+        date_range = st.date_input("Période Date_BE", value=[min_date, max_date], min_value=min_date, max_value=max_date)
+        if len(date_range) == 2:
             df_filtered = df_filtered[
-                (df_filtered['Date_BE_dt'] >= pd.to_datetime(start_date)) &
-                (df_filtered['Date_BE_dt'] <= pd.to_datetime(end_date))
+                (df_filtered['Date_BE_dt'] >= pd.to_datetime(date_range[0])) &
+                (df_filtered['Date_BE_dt'] <= pd.to_datetime(date_range[1]))
             ]
 
     if 'Type_Transport' in df_filtered:
