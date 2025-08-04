@@ -192,26 +192,15 @@ df_filtered = df.copy()
 
 with st.sidebar:
     st.header("🔍 Filtres")
-
-    # Astuce : crée un conteneur avec padding bas pour laisser de la place au calendrier
-    with st.container():
-        st.markdown("<div style='margin-bottom: 200px'></div>", unsafe_allow_html=True)
-
-        if 'Date_BE_dt' in df_filtered:
-            min_date = df_filtered['Date_BE_dt'].min().date()
-            max_date = df_filtered['Date_BE_dt'].max().date()
-            date_range = st.date_input(
-                "Période Date_BE",
-                value=[min_date, max_date],
-                min_value=min_date,
-                max_value=max_date
-            )
-            if len(date_range) == 2:
-                df_filtered = df_filtered[
-                    (df_filtered['Date_BE_dt'] >= pd.to_datetime(date_range[0])) &
-                    (df_filtered['Date_BE_dt'] <= pd.to_datetime(date_range[1]))
-                ]
-
+    if 'Date_BE_dt' in df_filtered:
+        min_date = df_filtered['Date_BE_dt'].min().date()
+        max_date = df_filtered['Date_BE_dt'].max().date()
+        date_range = st.date_input("Période Date_BE", value=[min_date, max_date], min_value=min_date, max_value=max_date)
+        if len(date_range) == 2:
+            df_filtered = df_filtered[
+                (df_filtered['Date_BE_dt'] >= pd.to_datetime(date_range[0])) &
+                (df_filtered['Date_BE_dt'] <= pd.to_datetime(date_range[1]))
+            ]
 
     if 'Type_Transport' in df_filtered:
         options = df_filtered['Type_Transport'].dropna().unique()
