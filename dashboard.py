@@ -9,13 +9,19 @@ from streamlit_datetime_range_picker import datetime_range_picker
 
 st.markdown("""
 <style>
-/* Réduit le padding top du conteneur principal */
+/* Cacher l'en-tête Streamlit */
+header[data-testid="stHeader"] {
+    display: none;
+}
+
+/* Réduire le padding top du conteneur principal */
 div[data-testid="stMainBlockContainer"] {
-    padding-top: 0.9rem !important;  /* ou 0 si tu veux vraiment rien */
+    padding-top: 0.9rem !important;  /* ajuste la valeur ici */
     margin-top: 0 !important;
 }
 </style>
 """, unsafe_allow_html=True)
+
 
 
 
