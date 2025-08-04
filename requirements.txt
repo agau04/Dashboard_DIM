@@ -6,3 +6,4 @@ requests
 xlsxwriter
 holidays
 plotly
+streamlit_datetime_range_picker
