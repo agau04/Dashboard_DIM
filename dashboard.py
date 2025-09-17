@@ -9,7 +9,7 @@ from streamlit_datetime_range_picker import datetime_range_picker
 
 st.markdown("""
 <style>
-/* Cacher l'en-tête Streamlit */
+/* Cacher l'en-tête */
 header[data-testid="stHeader"] {
     display: none;
 }
