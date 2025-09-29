@@ -8,6 +8,8 @@ import holidays
 from streamlit_datetime_range_picker import datetime_range_picker
 
 
+st.set_page_config(page_title="Statistiques DIM", layout="wide")
+
 st.markdown("""
 <style>
 /* Cacher l'en-tête */
@@ -22,8 +24,6 @@ div[data-testid="stMainBlockContainer"] {
 }
 </style>
 """, unsafe_allow_html=True)
-
-st.set_page_cig(page_title="Statistiques DIM", layout="wide")
 
 
 
