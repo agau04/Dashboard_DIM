@@ -23,7 +23,7 @@ div[data-testid="stMainBlockContainer"] {
 </style>
 """, unsafe_allow_html=True)
 
-st.set_page_config(page_title="Statistiques DIM", layout="wide")
+st.set_page_cig(page_title="Statistiques DIM", layout="wide")
 
 
 
