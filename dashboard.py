@@ -7,6 +7,9 @@ import plotly.graph_objects as go
 import holidays
 from streamlit_datetime_range_picker import datetime_range_picker
 
+
+st.set_page_config(page_title="Statistiques DIM", layout="wide")
+
 st.markdown("""
 <style>
 /* Cacher l'en-tête */
@@ -23,9 +26,6 @@ div[data-testid="stMainBlockContainer"] {
 """, unsafe_allow_html=True)
 
 
-
-
-st.set_page_config(page_title="Statistiques DIM", layout="wide")
 
 COLOR_PRIMARY = "#507DAE"
 COLOR_ALERT = "#BD5153"
@@ -59,7 +59,7 @@ def load_csv_from_url():
         content = response.content.decode('utf-8')
     except UnicodeDecodeError:
         content = response.content.decode('iso-8859-1')
-    df = pd.read_csv(io.StringIO(content), sep=';', engine='python')
+    df = pd.read_csv(io.StringIO(content), sep=';', quotechar='"', engine='python')
     df.columns = [col.strip() for col in df.columns]
     return df
 
@@ -203,6 +203,14 @@ if df.empty:
     st.warning("Aucune donnée chargée.")
     st.stop()
 
+# 🔹 Sauvegarde des données brutes pour analyse locale
+df.to_csv("raw_data_dim.csv", index=False, encoding="utf-8")
+print("✅ Fichier CSV brut enregistré : raw_data_dim.csv")
+
+df = preprocess_df(df)
+df = calculate_delta_jours_ouvres(df)
+
+
 df = preprocess_df(df)
 df = calculate_delta_jours_ouvres(df)
 
@@ -268,7 +276,7 @@ else:
         st.info("Pas de données avec délai mesuré.")
 
 # Filtrer pour analyse souffrance avec Date_liv non null
-df_souffrance = df_filtered[df_filtered['Date_liv_dt'].notna()]
+df_souffrance = df_filtered.copy()
 souff_count, total_rows = count_souffrance(df_souffrance)
 if total_rows > 0:
     with col2:
