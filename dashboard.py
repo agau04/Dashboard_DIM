@@ -90,11 +90,12 @@ def calculate_delta_jours_ouvres(df):
     return df
 
 @st.cache_data(ttl=300)
-def count_souffrance(df):
+def count_souffrance(df: pd.DataFrame):
     if 'Souffrance' not in df.columns:
         return 0, 0
-    souffrance_non_null = df['Souffrance'].astype(str).str.strip().replace({'', 'nan', 'NaN', 'None'}, None).dropna()
+    souffrance_non_null = df['Souffrance'].dropna()  # garde tout sauf les vrais NaN
     return len(souffrance_non_null), len(df)
+
 
 
 def plot_delta_plotly(delta_counts):
