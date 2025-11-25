@@ -50,7 +50,7 @@ with st.sidebar:
 def load_csv_from_url():
     url = "https://sobotram.teliway.com:443/appli/vsobotram/main/extraction.php?sAction=export&idDo=173&sCle=KPI_DIM&sTypeResultat=csv"
     try:
-        response = requests.get(url, verify=False, timeout=30)
+        response = requests.get(url, verify=False, timeout=60)
         response.raise_for_status()
     except Exception as e:
         st.error(f"Erreur lors du chargement des données : {e}")
