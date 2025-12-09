@@ -144,14 +144,6 @@ with st.sidebar:
 # KPIs Functions (inchangés)
 # --------------------------
 
-def count_souffrance(df):
-    if 'Souffrance' not in df.columns:
-        return 0, 0
-    cleaned = df['Souffrance'].astype(str).str.strip().replace({'','nan','NaN','None'}, None)
-    souff = cleaned.dropna()
-    return len(souff), len(df)
-
-
 def plot_delta_plotly(delta_counts):
     total = delta_counts.sum()
     fig = go.Figure()
@@ -173,6 +165,13 @@ def plot_delta_plotly(delta_counts):
         height=400
     )
     return fig
+
+def count_souffrance(df):
+    if 'Souffrance' not in df.columns:
+        return 0, 0
+    cleaned = df['Souffrance'].astype(str).str.strip().replace({'','nan','NaN','None'}, None)
+    souff = cleaned.dropna()
+    return len(souff), len(df)
 
 
 def plot_souffrance_plotly(count, total):
