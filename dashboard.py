@@ -298,7 +298,7 @@ with col_souffrance_rdv:
         if 'Type_Transport' in df_filtered.columns:
             df_rdv = df_filtered[df_filtered['Type_Transport'].isin(['IAF','AFF'])]
             df_rdv = df_rdv[df_rdv['Date_liv_dt'].notna() & df_rdv['Date_rdv_dt'].notna()]
-            st.subheader("⏰ Taux de respect des RDV pour produits IAF/AFF")
+            st.subheader("⏰ Taux de respect des RDV IAF/AFF")
 
             if not df_rdv.empty:
                 df_rdv['RDV_respect'] = df_rdv['Date_liv_dt'] <= df_rdv['Date_rdv_dt']
