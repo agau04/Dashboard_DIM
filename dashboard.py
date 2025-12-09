@@ -314,7 +314,7 @@ with col_souffrance_rdv:
 # --------------------------
 
 # --------------------------
-# KPI Livraison Mensuel
+# KPI Livraison Mensuel avec moyenne glissante
 # --------------------------
 
 st.subheader("📅 KPI Livraison par mois")
@@ -328,8 +328,11 @@ else:
     kpi_mensuel = df_liv.groupby('Mois').agg(nb_total=('Livree','count'), nb_livrees=('Livree','sum'))
     kpi_mensuel['taux'] = (kpi_mensuel['nb_livrees']/kpi_mensuel['nb_total'])*100
 
-    # Calcul de la moyenne du taux
-    moyenne_taux = kpi_mensuel['taux'].mean()
+    # Tri par mois pour être sûr que c'est chronologique
+    kpi_mensuel = kpi_mensuel.sort_index()
+
+    # Moyenne glissante sur 3 mois
+    kpi_mensuel['moyenne_glissante'] = kpi_mensuel['taux'].rolling(window=3, min_periods=1).mean()
 
     fig = go.Figure()
 
@@ -343,19 +346,19 @@ else:
         name="Taux mensuel"
     ))
 
-    # Ligne de moyenne
+    # Ligne de moyenne glissante
     fig.add_trace(go.Scatter(
         x=kpi_mensuel.index,
-        y=[moyenne_taux]*len(kpi_mensuel),
-        mode='lines+text',
-        name=f"Moyenne : {moyenne_taux:.1f}%",
+        y=kpi_mensuel['moyenne_glissante'],
+        mode='lines+markers+text',
+        name="Moyenne glissante 3 mois",
         line=dict(color=COLOR_ALERT, dash='dash'),
-        text=[f"{moyenne_taux:.1f}%"]*len(kpi_mensuel),
+        text=[f"{v:.1f}%" for v in kpi_mensuel['moyenne_glissante']],
         textposition="top right"
     ))
 
     fig.update_layout(
-        title="Taux de Livraison par Mois",
+        title="Taux de Livraison par Mois avec Moyenne Glissante",
         xaxis_title="Mois",
         yaxis_title="Taux de livraison (%)",
         height=450,
@@ -364,7 +367,9 @@ else:
         margin=dict(t=60),
         legend=dict(yanchor="top", y=0.99, xanchor="left", x=0.01)
     )
+
     st.plotly_chart(fig, use_container_width=True, theme=None)
+
 
 
 # --------------------------
