@@ -365,7 +365,6 @@ else:
         paper_bgcolor="white",
         plot_bgcolor="white",
         margin=dict(t=60),
-        legend=dict(yanchor="top", y=0.99, xanchor="left", x=0.01)
     )
 
     st.plotly_chart(fig, use_container_width=True, theme=None)
