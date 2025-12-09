@@ -202,7 +202,7 @@ def plot_rdv_respect_plotly(df):
         marker=dict(colors=[COLOR_PRIMARY, COLOR_ALERT]),
         hole=0.4
     )])
-    fig.update_layout(title="Taux de respect des RDV pour produits IAF/AFF",
+    fig.update_layout(title="Taux de respect des RDV IAF/AFF",
                       height=400,
                       font=dict(color="black", size=12))
     return fig
