@@ -313,6 +313,10 @@ with col_souffrance_rdv:
 # KPI Livraison Mensuel
 # --------------------------
 
+# --------------------------
+# KPI Livraison Mensuel
+# --------------------------
+
 st.subheader("📅 KPI Livraison par mois")
 df_liv = df_filtered[df_filtered['Date_depart_dt'].notna()]
 
@@ -324,14 +328,32 @@ else:
     kpi_mensuel = df_liv.groupby('Mois').agg(nb_total=('Livree','count'), nb_livrees=('Livree','sum'))
     kpi_mensuel['taux'] = (kpi_mensuel['nb_livrees']/kpi_mensuel['nb_total'])*100
 
+    # Calcul de la moyenne du taux
+    moyenne_taux = kpi_mensuel['taux'].mean()
+
     fig = go.Figure()
+
+    # Barres du taux par mois
     fig.add_trace(go.Bar(
         x=kpi_mensuel.index,
         y=kpi_mensuel['taux'],
         text=[f"{v:.1f}%" for v in kpi_mensuel['taux']],
         textposition='outside',
-        marker_color=COLOR_PRIMARY
+        marker_color=COLOR_PRIMARY,
+        name="Taux mensuel"
     ))
+
+    # Ligne de moyenne
+    fig.add_trace(go.Scatter(
+        x=kpi_mensuel.index,
+        y=[moyenne_taux]*len(kpi_mensuel),
+        mode='lines+text',
+        name=f"Moyenne : {moyenne_taux:.1f}%",
+        line=dict(color=COLOR_ALERT, dash='dash'),
+        text=[f"{moyenne_taux:.1f}%"]*len(kpi_mensuel),
+        textposition="top right"
+    ))
+
     fig.update_layout(
         title="Taux de Livraison par Mois",
         xaxis_title="Mois",
@@ -339,9 +361,11 @@ else:
         height=450,
         paper_bgcolor="white",
         plot_bgcolor="white",
-        margin=dict(t=60)
+        margin=dict(t=60),
+        legend=dict(yanchor="top", y=0.99, xanchor="left", x=0.01)
     )
     st.plotly_chart(fig, use_container_width=True, theme=None)
+
 
 # --------------------------
 # EXPORTS
