@@ -308,12 +308,6 @@ with col_souffrance_rdv:
             else:
                 st.info("Aucune donnée avec Date Livraison et Date RDV pour produits IAF/AFF.")
 
-# --------------------------
-# KPI Livraison
-# --------------------------
-
-st.subheader("📈 KPI Livraison")
-st.plotly_chart(plot_livraison_kpi_plotly(df_filtered), use_container_width=True, theme=None)
 
 # --------------------------
 # KPI Livraison Mensuel
