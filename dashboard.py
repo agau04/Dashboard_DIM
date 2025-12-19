@@ -49,53 +49,48 @@ def get_holiday_array():
 
 
 @st.cache_data(ttl=600)
-def load_csv():
+def download_csv_raw():
     url = "https://sobotram.teliway.com:443/appli/vsobotram/main/extraction.php?sAction=export&idDo=173&sCle=KPI_DIM&sTypeResultat=csv"
     headers = {"User-Agent": "Streamlit-DIM/1.0"}
+    response = requests.get(url, verify=False, timeout=50, stream=True, headers=headers)
+    response.raise_for_status()
+    return response.raw.read()
 
-    r = requests.get(url, verify=False, timeout=50, headers=headers)
-    r.raise_for_status()
 
-    raw = r.content
+@st.cache_data(ttl=600)
+def parse_csv(raw_bytes):
     try:
-        text = raw.decode("utf-8")
+        text = raw_bytes.decode("utf-8")
     except UnicodeDecodeError:
-        text = raw.decode("iso-8859-1")
-
+        text = raw_bytes.decode("iso-8859-1")
     df = pd.read_csv(io.StringIO(text), sep=';', quotechar='"', engine='python')
-    df.columns = df.columns.str.strip()
+    df.columns = [c.strip() for c in df.columns]
     return df
 
 
 @st.cache_data(ttl=600)
 def preprocess_and_compute(df):
     df = df.copy()
-
     date_cols = [c for c in ['Date_BE', 'Date_depart', 'Date_liv', 'Date_rdv'] if c in df.columns]
+
     for col in date_cols:
         df[col + "_dt"] = pd.to_datetime(df[col], errors="coerce")
 
     if 'Souffrance' in df.columns:
-        df['Souffrance'] = (
-            df['Souffrance']
-            .astype(str)
-            .str.replace(r'[\r\n]+', ' ', regex=True)
-            .str.strip()
-        )
+        df['Souffrance'] = df['Souffrance'].astype(str).str.replace(r'[\r\n]+', ' ', regex=True).str.strip()
 
     mask = df['Date_depart_dt'].notna() & df['Date_liv_dt'].notna()
-    df['Delta_jours_ouvres'] = np.nan
-
     if mask.any():
         dep_np = df.loc[mask, 'Date_depart_dt'].values.astype("datetime64[D]")
         liv_np = df.loc[mask, 'Date_liv_dt'].values.astype("datetime64[D]")
         holidays_np = get_holiday_array()
-
         delta = np.busday_count(dep_np + 1, liv_np + 1, holidays=holidays_np)
+        df['Delta_jours_ouvres'] = np.nan
         df.loc[mask, 'Delta_jours_ouvres'] = np.maximum(delta, 1)
+    else:
+        df['Delta_jours_ouvres'] = np.nan
 
     return df
-
 
 
 # ==========================
