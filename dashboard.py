@@ -246,7 +246,7 @@ with st.sidebar:
     if sel_multi:
         df_filtered = df_filtered[df_filtered['Type_Transport'].isin(sel_multi)]
 
-    if 'CHRONO' in df_filtered:
+    if 'TYPE' in df_filtered:
         opts = df_filtered['CHRONO'].dropna().unique()
         sel2 = st.selectbox("⏱️ CHRONO", ["(Tous)"] + sorted(opts))
         if sel2 != "(Tous)":
