@@ -247,10 +247,10 @@ with st.sidebar:
         df_filtered = df_filtered[df_filtered['Type_Transport'].isin(sel_multi)]
 
     if 'TYPE' in df_filtered:
-        opts = df_filtered['CHRONO'].dropna().unique()
-        sel2 = st.selectbox("⏱️ CHRONO", ["(Tous)"] + sorted(opts))
+        opts = df_filtered['TYPE'].dropna().unique()
+        sel2 = st.selectbox("⏱️ TYPE", ["(Tous)"] + sorted(opts))
         if sel2 != "(Tous)":
-            df_filtered = df_filtered[df_filtered['CHRONO'] == sel2]
+            df_filtered = df_filtered[df_filtered['TYPE'] == sel2]
 
 # --------------------------
 # TABLEAU
