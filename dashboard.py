@@ -241,13 +241,13 @@ if len(date_range) == 2:
 with st.sidebar:
     st.header("🔍 Filtres")
 
+    sel_multi = []
+
     if 'Type_Transport' in df_filtered:
         opts = sorted(df_filtered['Type_Transport'].dropna().unique())
         sel_multi = st.multiselect("🚛 Type Transport", options=opts, default=opts)
     if sel_multi:
         df_filtered = df_filtered[df_filtered['Type_Transport'].isin(sel_multi)]
-
-    sel_multi = []
 
     if 'TYPE' in df_filtered:
         opts = df_filtered['TYPE'].dropna().unique()
