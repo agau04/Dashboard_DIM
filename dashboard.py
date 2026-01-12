@@ -26,7 +26,11 @@ pio.templates.default = "dim_theme"
 
 st.markdown("""
 <style>
-header[data-testid="stHeader"] { display: none; }
+header[data-testid="stHeader"] {
+    height: 0;
+    visibility: hidden;
+}
+
 div[data-testid="stMainBlockContainer"] {
     padding-top: 0.9rem !important;
     margin-top: 0 !important;
